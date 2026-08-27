@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Data and model artifacts
+data/raw/pkdd/*.asc
+data/processed/*
+!data/processed/.gitkeep
+data/*.db
+models/*
+!models/.gitkeep
+
+# Frontend
+node_modules/
+.next/
+dist/
+build/
+
+# Local environment
+.env
+.env.*
+!.env.example
+
+# OS/editor
+.DS_Store
+.idea/
+.vscode/

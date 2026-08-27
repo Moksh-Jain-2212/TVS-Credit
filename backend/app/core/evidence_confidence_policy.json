@@ -1,0 +1,15 @@
+{
+  "weights": {
+    "history_length": 0.22,
+    "transaction_density": 0.14,
+    "missingness": 0.14,
+    "data_completeness": 0.14,
+    "evidence_consistency": 0.18,
+    "usable_evidence_types": 0.12,
+    "model_certainty": 0.06
+  },
+  "history_months_full_credit": 12.0,
+  "transactions_per_month_full_credit": 5.0,
+  "medium_band_min_score": 50,
+  "high_band_min_score": 75
+}

@@ -1,0 +1,49 @@
+{
+  "survival_buffer_floor": 0.0,
+  "scenarios": [
+    {
+      "name": "normal",
+      "income_multiplier": 1.0,
+      "expense_shock": 0.0,
+      "cash_flow_quantile": "p50"
+    },
+    {
+      "name": "income_minus_10",
+      "income_multiplier": 0.9,
+      "expense_shock": 0.0,
+      "cash_flow_quantile": "p50"
+    },
+    {
+      "name": "income_minus_20",
+      "income_multiplier": 0.8,
+      "expense_shock": 0.0,
+      "cash_flow_quantile": "p50"
+    },
+    {
+      "name": "income_minus_30",
+      "income_multiplier": 0.7,
+      "expense_shock": 0.0,
+      "cash_flow_quantile": "p50"
+    },
+    {
+      "name": "one_off_expense_shock",
+      "income_multiplier": 1.0,
+      "expense_shock": 5000.0,
+      "expense_shock_period": 1,
+      "cash_flow_quantile": "p50"
+    },
+    {
+      "name": "low_income_period",
+      "income_multiplier": 1.0,
+      "expense_shock": 0.0,
+      "cash_flow_quantile": "p10"
+    },
+    {
+      "name": "combined_income_expense_shock",
+      "income_multiplier": 0.8,
+      "expense_shock": 5000.0,
+      "expense_shock_period": 1,
+      "cash_flow_quantile": "p10"
+    }
+  ]
+}

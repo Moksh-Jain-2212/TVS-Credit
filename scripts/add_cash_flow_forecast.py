@@ -1,0 +1,225 @@
+"""Add lightweight pre-loan cash-flow forecasts and evaluation."""
+
+from __future__ import annotations
+
+import argparse
+import sys
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+import pandas as pd
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from scripts.build_nadi_features import load_pre_loan_transactions, monthly_series
+
+
+INSUFFICIENT_HISTORY = "insufficient_history"
+MIN_FORECAST_MONTHS = 3
+MIN_BACKTEST_MONTHS = 4
+
+FORECAST_COLUMNS = [
+    "cash_flow_forecast_status",
+    "cash_flow_forecast_method",
+    "cash_flow_forecast_history_months",
+    "cash_flow_forecast_p10",
+    "cash_flow_forecast_p50",
+    "cash_flow_forecast_p90",
+]
+
+
+def pinball_loss(actual: float, prediction: float, quantile: float) -> float:
+    error = actual - prediction
+    return float(max(quantile * error, (quantile - 1.0) * error))
+
+
+def trend_adjustment(values: pd.Series) -> float:
+    if len(values) < 6:
+        return 0.0
+    x_values = np.arange(len(values), dtype=float)
+    slope = np.polyfit(x_values, values.to_numpy(dtype=float), 1)[0]
+    return float(slope)
+
+
+def forecast_monthly_cash_flow(monthly: pd.DataFrame) -> dict[str, Any]:
+    if len(monthly) < MIN_FORECAST_MONTHS:
+        return {
+            "cash_flow_forecast_status": INSUFFICIENT_HISTORY,
+            "cash_flow_forecast_method": INSUFFICIENT_HISTORY,
+            "cash_flow_forecast_history_months": int(len(monthly)),
+            "cash_flow_forecast_p10": np.nan,
+            "cash_flow_forecast_p50": np.nan,
+            "cash_flow_forecast_p90": np.nan,
+        }
+
+    net_cash_flow = monthly["net_cash_flow"].astype(float)
+    adjustment = trend_adjustment(net_cash_flow)
+    p10, p50, p90 = np.percentile(net_cash_flow, [10, 50, 90]) + adjustment
+    p10, p50, p90 = sorted([float(p10), float(p50), float(p90)])
+    return {
+        "cash_flow_forecast_status": "forecast_available",
+        "cash_flow_forecast_method": "historical_quantile_with_trend_adjustment",
+        "cash_flow_forecast_history_months": int(len(monthly)),
+        "cash_flow_forecast_p10": p10,
+        "cash_flow_forecast_p50": p50,
+        "cash_flow_forecast_p90": p90,
+    }
+
+
+def build_forecast_row(loan_id: Any, history: pd.DataFrame) -> dict[str, Any]:
+    if history.empty:
+        monthly = pd.DataFrame(columns=["net_cash_flow"])
+    else:
+        monthly = monthly_series(history)
+    return {"loan_id": loan_id, **forecast_monthly_cash_flow(monthly)}
+
+
+def build_cash_flow_forecasts(transactions: pd.DataFrame, loan_ids: pd.Series) -> pd.DataFrame:
+    grouped = dict(tuple(transactions.groupby("loan_id"))) if not transactions.empty else {}
+    rows = [
+        build_forecast_row(loan_id, grouped.get(loan_id, pd.DataFrame(columns=transactions.columns)))
+        for loan_id in loan_ids
+    ]
+    return pd.DataFrame(rows)
+
+
+def evaluate_forecasts(transactions: pd.DataFrame) -> dict[str, Any]:
+    rows: list[dict[str, float]] = []
+    for loan_id, history in transactions.groupby("loan_id"):
+        monthly = monthly_series(history)
+        if len(monthly) < MIN_BACKTEST_MONTHS:
+            continue
+        train_monthly = monthly.iloc[:-1]
+        actual = float(monthly.iloc[-1]["net_cash_flow"])
+        forecast = forecast_monthly_cash_flow(train_monthly)
+        if forecast["cash_flow_forecast_status"] != "forecast_available":
+            continue
+        rows.append(
+            {
+                "loan_id": float(loan_id),
+                "actual": actual,
+                "p10": float(forecast["cash_flow_forecast_p10"]),
+                "p50": float(forecast["cash_flow_forecast_p50"]),
+                "p90": float(forecast["cash_flow_forecast_p90"]),
+            }
+        )
+
+    if not rows:
+        return {
+            "evaluated_loans": 0,
+            "mae_p50": np.nan,
+            "pinball_loss_p10": np.nan,
+            "pinball_loss_p50": np.nan,
+            "pinball_loss_p90": np.nan,
+            "prediction_interval_coverage_p10_p90": np.nan,
+        }
+
+    frame = pd.DataFrame(rows)
+    return {
+        "evaluated_loans": int(len(frame)),
+        "mae_p50": float((frame["actual"] - frame["p50"]).abs().mean()),
+        "pinball_loss_p10": float(
+            np.mean([pinball_loss(row.actual, row.p10, 0.10) for row in frame.itertuples()])
+        ),
+        "pinball_loss_p50": float(
+            np.mean([pinball_loss(row.actual, row.p50, 0.50) for row in frame.itertuples()])
+        ),
+        "pinball_loss_p90": float(
+            np.mean([pinball_loss(row.actual, row.p90, 0.90) for row in frame.itertuples()])
+        ),
+        "prediction_interval_coverage_p10_p90": float(
+            ((frame["actual"] >= frame["p10"]) & (frame["actual"] <= frame["p90"])).mean()
+        ),
+    }
+
+
+def evaluation_markdown(metrics: dict[str, Any]) -> str:
+    return f"""# Cash-Flow Forecast Evaluation
+
+Generated by `scripts/add_cash_flow_forecast.py`.
+
+## Method
+
+The forecast uses pre-loan monthly net cash-flow history only. P10 is conservative, P50 is expected, and P90 is optimistic. Histories with fewer than {MIN_FORECAST_MONTHS} monthly observations return `{INSUFFICIENT_HISTORY}`.
+
+## Backtest
+
+For loans with at least {MIN_BACKTEST_MONTHS} months of pre-loan history, the final pre-loan month is held out and forecast from earlier months.
+
+- Evaluated loans: {metrics['evaluated_loans']}
+- MAE at P50: {metrics['mae_p50']}
+- Pinball loss P10: {metrics['pinball_loss_p10']}
+- Pinball loss P50: {metrics['pinball_loss_p50']}
+- Pinball loss P90: {metrics['pinball_loss_p90']}
+- P10-P90 interval coverage: {metrics['prediction_interval_coverage_p10_p90']}
+
+These ranges are uncertainty estimates from sparse account-level histories, not precise cash-flow promises.
+"""
+
+
+def add_cash_flow_forecast(
+    db_path: Path = Path("data/nadi.db"),
+    features_path: Path = Path("data/processed/nadi_features.csv"),
+    output_path: Path = Path("data/processed/nadi_features.csv"),
+    evaluation_path: Path = Path("docs/cash_flow_forecast_evaluation.md"),
+) -> pd.DataFrame:
+    if not features_path.exists():
+        raise FileNotFoundError(f"Missing feature dataset: {features_path}")
+
+    features = pd.read_csv(features_path)
+    features = features.drop(columns=[column for column in FORECAST_COLUMNS if column in features.columns])
+    transactions = load_pre_loan_transactions(db_path)
+    forecasts = build_cash_flow_forecasts(transactions, features["loan_id"])
+    frame = features.merge(forecasts, on="loan_id", how="left")
+
+    if len(frame) != len(features):
+        raise ValueError("Forecast merge changed feature row count")
+    if frame["loan_id"].duplicated().any():
+        raise ValueError("Forecast dataset contains duplicate loan_id values")
+    available = frame["cash_flow_forecast_status"] == "forecast_available"
+    if available.any():
+        invalid = frame.loc[available, "cash_flow_forecast_p10"] > frame.loc[available, "cash_flow_forecast_p50"]
+        invalid |= frame.loc[available, "cash_flow_forecast_p50"] > frame.loc[available, "cash_flow_forecast_p90"]
+        if invalid.any():
+            raise ValueError("Forecast quantiles must be ordered P10 <= P50 <= P90")
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    frame.to_csv(output_path, index=False, encoding="utf-8")
+
+    metrics = evaluate_forecasts(transactions)
+    evaluation_path.parent.mkdir(parents=True, exist_ok=True)
+    evaluation_path.write_text(evaluation_markdown(metrics), encoding="utf-8")
+    return frame
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--db-path", type=Path, default=Path("data/nadi.db"))
+    parser.add_argument("--features-path", type=Path, default=Path("data/processed/nadi_features.csv"))
+    parser.add_argument("--output-path", type=Path, default=Path("data/processed/nadi_features.csv"))
+    parser.add_argument(
+        "--evaluation-path",
+        type=Path,
+        default=Path("docs/cash_flow_forecast_evaluation.md"),
+    )
+    return parser.parse_args()
+
+
+def main() -> None:
+    args = parse_args()
+    frame = add_cash_flow_forecast(
+        args.db_path,
+        args.features_path,
+        args.output_path,
+        args.evaluation_path,
+    )
+    print(f"Wrote cash-flow forecasts to {args.output_path} with {len(frame)} rows.")
+    print(f"Forecast status counts: {frame['cash_flow_forecast_status'].value_counts().to_dict()}")
+    print(f"Wrote evaluation to {args.evaluation_path}.")
+
+
+if __name__ == "__main__":
+    main()

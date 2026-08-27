@@ -1,0 +1,25 @@
+{
+  "allowed_events": {
+    "on_time": {
+      "risk_multiplier": 0.95,
+      "confidence_delta": 2.0,
+      "cash_flow_delta_multiplier": 0.0,
+      "buffer_delta_multiplier": -1.0
+    },
+    "late": {
+      "risk_multiplier": 1.15,
+      "confidence_delta": -3.0,
+      "cash_flow_delta_multiplier": -0.25,
+      "buffer_delta_multiplier": -1.0
+    },
+    "missed": {
+      "risk_multiplier": 1.5,
+      "confidence_delta": -8.0,
+      "cash_flow_delta_multiplier": -1.0,
+      "buffer_delta_multiplier": 0.0
+    }
+  },
+  "max_confidence_score": 100.0,
+  "min_confidence_score": 0.0,
+  "min_starter_amount": 20000.0
+}

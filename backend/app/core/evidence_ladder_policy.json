@@ -1,0 +1,37 @@
+{
+  "min_sufficient_confidence_score": 75,
+  "default_options": [
+    {
+      "name": "additional_bank_history_months",
+      "base_confidence_gain": 18,
+      "friction_cost": 2,
+      "privacy_cost": 3,
+      "mocked_available": true,
+      "reason": "More bank history directly improves observed cash-flow length and stability."
+    },
+    {
+      "name": "another_financial_account",
+      "base_confidence_gain": 14,
+      "friction_cost": 3,
+      "privacy_cost": 4,
+      "mocked_available": true,
+      "reason": "Another account can reduce missingness and improve transaction coverage."
+    },
+    {
+      "name": "utility_history",
+      "base_confidence_gain": 9,
+      "friction_cost": 2,
+      "privacy_cost": 2,
+      "mocked_available": true,
+      "reason": "Utility history can add low-friction repayment consistency evidence."
+    },
+    {
+      "name": "gst_business_evidence",
+      "base_confidence_gain": 12,
+      "friction_cost": 4,
+      "privacy_cost": 4,
+      "mocked_available": true,
+      "reason": "GST or business evidence can support income consistency for self-employed borrowers."
+    }
+  ]
+}

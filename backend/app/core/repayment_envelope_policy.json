@@ -1,0 +1,19 @@
+{
+  "annual_interest_rate": 0.18,
+  "candidate_amounts": [20000, 30000, 40000, 50000, 75000, 100000, 125000, 150000],
+  "candidate_tenures_months": [6, 9, 12, 18, 24],
+  "safe": {
+    "max_risk_probability": 0.35,
+    "min_confidence_score": 60,
+    "max_stress_probability": 0.25,
+    "min_projected_buffer": 0,
+    "max_emi_to_expected_cash_flow": 0.7
+  },
+  "borderline": {
+    "max_risk_probability": 0.55,
+    "min_confidence_score": 45,
+    "max_stress_probability": 0.5,
+    "min_projected_buffer": -5000,
+    "max_emi_to_expected_cash_flow": 1.0
+  }
+}

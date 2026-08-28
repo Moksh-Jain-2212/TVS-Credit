@@ -197,12 +197,14 @@ export type TokenResponse = {
 
 export type RegisterResponse = {
   user: AuthUser;
-  otp_delivery: {
-    mode: string;
-    label: string;
-    mocked: boolean;
-    development_otp?: string;
-  };
+  otp_delivery: OtpDelivery;
+};
+
+export type OtpDelivery = {
+  mode: "SMTP_EMAIL" | "MOCK_CONSOLE" | string;
+  label: string;
+  mocked: boolean;
+  development_otp?: string;
 };
 
 export type PlatformApplication = {
@@ -333,6 +335,13 @@ export function verifyOtp(email: string, otp: string): Promise<AuthUser> {
   return platformRequest<AuthUser>("/auth/verify-otp", {
     method: "POST",
     body: JSON.stringify({ email, otp }),
+  });
+}
+
+export function resendOtp(email: string): Promise<RegisterResponse> {
+  return platformRequest<RegisterResponse>("/auth/resend-otp", {
+    method: "POST",
+    body: JSON.stringify({ email }),
   });
 }
 

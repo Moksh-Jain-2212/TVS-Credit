@@ -8,7 +8,7 @@ import { register } from "@/lib/api";
 export default function SignupPage() {
   const router = useRouter();
   const [form, setForm] = useState({ name: "", email: "", phone: "", password: "" });
-  const [mockOtp, setMockOtp] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -16,12 +16,10 @@ export default function SignupPage() {
     event.preventDefault();
     setLoading(true);
     setError(null);
+    setSuccess(null);
     try {
       const response = await register(form);
-      if (response.otp_delivery.development_otp) {
-        setMockOtp(response.otp_delivery.development_otp);
-        sessionStorage.setItem("nadi_mock_otp", response.otp_delivery.development_otp);
-      }
+      setSuccess(response.otp_delivery.label);
       router.push(`/verify-otp?email=${encodeURIComponent(form.email)}`);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Signup failed");
@@ -41,7 +39,7 @@ export default function SignupPage() {
           <label><span className="label">Phone</span><input className="field" value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} /></label>
           <label><span className="label">Password</span><input className="field" type="password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} /></label>
         </div>
-        {mockOtp ? <div className="mt-4 border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">OTP delivery: MOCK_CONSOLE · {mockOtp}</div> : null}
+        {success ? <div className="mt-4 border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">{success}</div> : null}
         {error ? <div className="mt-4 border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div> : null}
         <button className="btn-primary mt-6 w-full" disabled={loading} type="submit">{loading ? "Creating account" : "Create account"}</button>
         <p className="mt-4 text-sm text-[color:var(--muted)]">

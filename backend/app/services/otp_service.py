@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import secrets
 from datetime import timedelta
+import logging
 
 from fastapi import HTTPException, status
 from sqlalchemy import desc, select
@@ -15,14 +16,16 @@ from app.core.security import (
     hash_secret,
     otp_delivery_mode,
     otp_expire_minutes,
+    otp_max_attempts,
+    otp_resend_cooldown_seconds,
     utc_now,
     verify_secret,
 )
 from app.models import OtpVerification, User
+from app.services import email_service
 
 
-MAX_OTP_ATTEMPTS = 5
-RESEND_COOLDOWN_SECONDS = 30
+logger = logging.getLogger(__name__)
 
 
 def generate_otp() -> str:
@@ -54,7 +57,7 @@ def resend_otp(session: Session, user: User, purpose: str) -> tuple[OtpVerificat
     existing = latest_otp(session, user, purpose)
     if existing and existing.consumed_at is None:
         elapsed = (utc_now() - ensure_aware(existing.created_at)).total_seconds()
-        if elapsed < RESEND_COOLDOWN_SECONDS:
+        if elapsed < otp_resend_cooldown_seconds():
             raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="OTP resend cooldown active")
     return create_otp(session, user, purpose)
 
@@ -67,7 +70,7 @@ def verify_otp(session: Session, user: User, purpose: str, otp: str) -> OtpVerif
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="OTP already used")
     if ensure_aware(verification.expires_at) < utc_now():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="OTP expired")
-    if verification.attempt_count >= MAX_OTP_ATTEMPTS:
+    if verification.attempt_count >= otp_max_attempts():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="OTP attempts exceeded")
     if not verify_secret(otp, verification.otp_hash):
         verification.attempt_count += 1
@@ -79,13 +82,36 @@ def verify_otp(session: Session, user: User, purpose: str, otp: str) -> OtpVerif
     return verification
 
 
-def delivery_payload(otp: str) -> dict:
+def deliver_otp(user: User, otp: str, purpose: str) -> dict:
     mode = otp_delivery_mode()
-    payload = {
-        "mode": mode,
-        "label": "OTP delivery: MOCK_CONSOLE" if mode == "MOCK_CONSOLE" else f"OTP delivery: {mode}",
-        "mocked": mode == "MOCK_CONSOLE",
-    }
     if mode == "MOCK_CONSOLE":
+        payload = {
+            "mode": mode,
+            "label": "OTP delivery: MOCK_CONSOLE",
+            "mocked": True,
+        }
         payload["development_otp"] = otp
-    return payload
+        return payload
+    if mode == "SMTP_EMAIL":
+        try:
+            email_service.send_otp_email(
+                recipient_email=user.email,
+                recipient_name=user.name,
+                otp=otp,
+                purpose=purpose,
+            )
+        except (email_service.EmailConfigurationError, email_service.EmailDeliveryError):
+            logger.exception("OTP email delivery failed for user_id=%s purpose=%s", user.id, purpose)
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Unable to send verification email. Please try again.",
+            )
+        return {
+            "mode": mode,
+            "label": "Verification code sent to your email",
+            "mocked": False,
+        }
+    raise HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail="Unsupported OTP delivery mode",
+    )

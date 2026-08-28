@@ -53,6 +53,14 @@ def otp_expire_minutes() -> int:
     return env_int("OTP_EXPIRE_MINUTES", 5)
 
 
+def otp_max_attempts() -> int:
+    return env_int("OTP_MAX_ATTEMPTS", 5)
+
+
+def otp_resend_cooldown_seconds() -> int:
+    return env_int("OTP_RESEND_COOLDOWN_SECONDS", 30)
+
+
 def otp_delivery_mode() -> str:
     return os.getenv("OTP_DELIVERY_MODE", "MOCK_CONSOLE")
 

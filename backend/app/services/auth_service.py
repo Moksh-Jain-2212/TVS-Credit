@@ -22,7 +22,7 @@ from app.core.security import (
 )
 from app.models import AuditLog, RefreshSession, User, UserRole
 from app.schemas.auth import RegisterRequest
-from app.services.otp_service import create_otp, delivery_payload, resend_otp, verify_otp
+from app.services.otp_service import create_otp, deliver_otp, resend_otp, verify_otp
 
 
 def serialize_user(user: User) -> dict:
@@ -58,18 +58,23 @@ def register_user(session: Session, request: RegisterRequest) -> dict:
         session.rollback()
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
     _, otp = create_otp(session, user, "REGISTER")
+    try:
+        delivery = deliver_otp(user, otp, "REGISTER")
+    except HTTPException:
+        session.rollback()
+        raise
     session.add(
         AuditLog(
             actor_user=user,
             action="USER_REGISTERED",
             entity_type="User",
             entity_id=user.id,
-            metadata_json={"otp_delivery_mode": delivery_payload(otp)["mode"]},
+            metadata_json={"otp_delivery_mode": delivery["mode"]},
         )
     )
     session.commit()
     session.refresh(user)
-    return {"user": serialize_user(user), "otp_delivery": delivery_payload(otp)}
+    return {"user": serialize_user(user), "otp_delivery": delivery}
 
 
 def verify_registration_otp(session: Session, email: str, otp: str, purpose: str = "REGISTER") -> dict:
@@ -98,8 +103,13 @@ def resend_registration_otp(session: Session, email: str, purpose: str = "REGIST
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     _, otp = resend_otp(session, user, purpose)
+    try:
+        delivery = deliver_otp(user, otp, purpose)
+    except HTTPException:
+        session.rollback()
+        raise
     session.commit()
-    return {"user": serialize_user(user), "otp_delivery": delivery_payload(otp)}
+    return {"user": serialize_user(user), "otp_delivery": delivery}
 
 
 def create_token_pair(session: Session, user: User) -> dict:

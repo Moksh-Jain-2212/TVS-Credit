@@ -16,6 +16,7 @@ from app.core.app_database import (
 from app.core.security import create_jwt, hash_secret, utc_now
 from app.main import app
 from app.models import OtpVerification, User, UserRole
+from app.services import email_service, otp_service
 from scripts.init_app_db import init_app_db
 
 
@@ -140,6 +141,103 @@ def test_expired_otp_fails(platform_client) -> None:
     assert response.json()["detail"] == "OTP expired"
 
 
+def test_smtp_otp_delivery_does_not_return_otp_and_resend_sends_new_email(
+    platform_client,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client, _ = platform_client
+    monkeypatch.setenv("OTP_DELIVERY_MODE", "SMTP_EMAIL")
+    monkeypatch.setenv("OTP_RESEND_COOLDOWN_SECONDS", "0")
+    otp_values = iter(["111111", "222222"])
+    monkeypatch.setattr(otp_service, "generate_otp", lambda: next(otp_values))
+    sent: list[dict[str, str]] = []
+
+    def fake_send_otp_email(recipient_email: str, recipient_name: str, otp: str, purpose: str) -> None:
+        sent.append(
+            {
+                "recipient_email": recipient_email,
+                "recipient_name": recipient_name,
+                "otp": otp,
+                "purpose": purpose,
+            }
+        )
+
+    monkeypatch.setattr(email_service, "send_otp_email", fake_send_otp_email)
+    register = client.post(
+        "/auth/register",
+        json={
+            "name": "Email User",
+            "email": "email-user@example.com",
+            "phone": "+910000000000",
+            "password": "strong-pass-1",
+        },
+    )
+    assert register.status_code == 200
+    delivery = register.json()["otp_delivery"]
+    assert delivery == {
+        "mode": "SMTP_EMAIL",
+        "label": "Verification code sent to your email",
+        "mocked": False,
+    }
+    assert "development_otp" not in delivery
+    assert sent[0]["recipient_email"] == "email-user@example.com"
+    assert sent[0]["recipient_name"] == "Email User"
+    assert sent[0]["otp"].isdigit()
+    assert len(sent[0]["otp"]) == 6
+
+    resend = client.post("/auth/resend-otp", json={"email": "email-user@example.com"})
+    assert resend.status_code == 200
+    assert "development_otp" not in resend.json()["otp_delivery"]
+    assert len(sent) == 2
+    assert sent[1]["otp"].isdigit()
+    assert len(sent[1]["otp"]) == 6
+    assert sent[1]["otp"] != sent[0]["otp"]
+
+    old_code = client.post("/auth/verify-otp", json={"email": "email-user@example.com", "otp": sent[0]["otp"]})
+    assert old_code.status_code == 400
+    assert old_code.json()["detail"] == "Invalid OTP"
+
+    verified = client.post("/auth/verify-otp", json={"email": "email-user@example.com", "otp": sent[1]["otp"]})
+    assert verified.status_code == 200
+    assert verified.json()["is_verified"] is True
+
+    used = client.post("/auth/verify-otp", json={"email": "email-user@example.com", "otp": sent[1]["otp"]})
+    assert used.status_code == 400
+    assert used.json()["detail"] == "OTP already used"
+
+    login = client.post("/auth/login", json={"email": "email-user@example.com", "password": "strong-pass-1"})
+    assert login.status_code == 200
+    assert login.json()["user"]["is_verified"] is True
+
+
+def test_smtp_delivery_failure_returns_503_and_rolls_back_user(
+    platform_client,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client, db_path = platform_client
+    monkeypatch.setenv("OTP_DELIVERY_MODE", "SMTP_EMAIL")
+
+    def fail_send_otp_email(recipient_email: str, recipient_name: str, otp: str, purpose: str) -> None:
+        raise email_service.EmailDeliveryError("simulated SMTP failure")
+
+    monkeypatch.setattr(email_service, "send_otp_email", fail_send_otp_email)
+    response = client.post(
+        "/auth/register",
+        json={
+            "name": "Failed Email",
+            "email": "failed@example.com",
+            "phone": "+910000000000",
+            "password": "strong-pass-1",
+        },
+    )
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == "Unable to send verification email. Please try again."
+    factory = session_factory(db_path)
+    with factory() as session:
+        assert session.scalar(select(User).where(User.email == "failed@example.com")) is None
+
+
 def test_complete_platform_underwriting_and_admin_decision_flow(platform_client) -> None:
     client, db_path = platform_client
     user_tokens = register_verify_login(client, "borrower@example.com")
@@ -230,3 +328,55 @@ def test_underwriting_failure_does_not_silently_approve(platform_client) -> None
 
     assert response.status_code == 422
     assert "Connect demo financial data" in response.json()["detail"]
+
+
+def test_email_service_sends_smtp_message_with_tls(monkeypatch: pytest.MonkeyPatch) -> None:
+    events: list[str] = []
+    sent_messages = []
+
+    class FakeSmtp:
+        def __init__(self, host: str, port: int, timeout: float):
+            events.append(f"connect:{host}:{port}:{timeout}")
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, traceback):
+            events.append("close")
+
+        def ehlo(self):
+            events.append("ehlo")
+
+        def starttls(self):
+            events.append("starttls")
+
+        def login(self, username: str, password: str):
+            events.append(f"login:{username}:{password}")
+
+        def send_message(self, message):
+            sent_messages.append(message)
+            events.append("send_message")
+
+    monkeypatch.setenv("SMTP_HOST", "smtp.gmail.com")
+    monkeypatch.setenv("SMTP_PORT", "587")
+    monkeypatch.setenv("SMTP_USERNAME", "sender@example.com")
+    monkeypatch.setenv("SMTP_PASSWORD", "app-password")
+    monkeypatch.setenv("SMTP_FROM_EMAIL", "sender@example.com")
+    monkeypatch.setenv("SMTP_FROM_NAME", "TVS NADI")
+    monkeypatch.setenv("SMTP_USE_TLS", "true")
+    monkeypatch.setattr(email_service.smtplib, "SMTP", FakeSmtp)
+
+    email_service.send_otp_email("borrower@example.com", "Borrower", "123456", "REGISTER")
+
+    assert events == [
+        "connect:smtp.gmail.com:587:10.0",
+        "ehlo",
+        "starttls",
+        "ehlo",
+        "login:sender@example.com:app-password",
+        "send_message",
+        "close",
+    ]
+    assert sent_messages[0]["To"] == "borrower@example.com"
+    assert sent_messages[0]["Subject"] == "Your TVS NADI verification code"
+    assert "123456" in sent_messages[0].get_content()

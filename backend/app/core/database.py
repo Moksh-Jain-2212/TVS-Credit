@@ -9,7 +9,8 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 
-DEFAULT_DB_PATH = Path("data/nadi.db")
+REPO_ROOT = Path(__file__).resolve().parents[3]
+DEFAULT_DB_PATH = REPO_ROOT / "data" / "nadi.db"
 
 
 class Base(DeclarativeBase):

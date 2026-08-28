@@ -29,6 +29,171 @@ select {
   font: inherit;
 }
 
+input,
+textarea {
+  font: inherit;
+}
+
+.btn-primary,
+.btn-secondary,
+.nav-link {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  padding: 0.55rem 0.85rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.btn-primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: white;
+}
+
+.btn-secondary,
+.nav-link {
+  background: white;
+}
+
+.btn-primary:disabled,
+.btn-secondary:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.field {
+  width: 100%;
+  border: 1px solid var(--line);
+  background: white;
+  padding: 0.72rem 0.8rem;
+  outline: none;
+}
+
+.field:focus {
+  border-color: var(--accent);
+}
+
+.label {
+  display: block;
+  margin-bottom: 0.4rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.page-center {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 1.5rem;
+}
+
+.auth-panel {
+  width: min(460px, 100%);
+  border: 1px solid var(--line);
+  background: white;
+  padding: 1.5rem;
+}
+
+.section-panel {
+  border: 1px solid var(--line);
+  background: white;
+  padding: 1.25rem;
+}
+
+.item-card,
+.metric-card {
+  border: 1px solid var(--line);
+  background: white;
+  padding: 1rem;
+}
+
+.badge {
+  display: inline-flex;
+  min-height: 28px;
+  align-items: center;
+  border: 1px solid var(--line);
+  padding: 0.25rem 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.badge-good {
+  border-color: #86efac;
+  background: #dcfce7;
+  color: #14532d;
+}
+
+.badge-warn {
+  border-color: #fcd34d;
+  background: #fef3c7;
+  color: #78350f;
+}
+
+.badge-bad {
+  border-color: #fecaca;
+  background: #fee2e2;
+  color: #7f1d1d;
+}
+
+.badge-neutral {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+  color: #334155;
+}
+
+.empty-state {
+  border: 1px dashed var(--line);
+  background: #f8fafc;
+  padding: 1rem;
+  color: var(--muted);
+}
+
+.envelope-cell {
+  min-height: 82px;
+  border: 1px solid var(--line);
+  padding: 0.75rem;
+}
+
+.envelope-safe {
+  border-color: #86efac;
+  background: #dcfce7;
+}
+
+.envelope-borderline {
+  border-color: #fcd34d;
+  background: #fef3c7;
+}
+
+.envelope-unsafe {
+  border-color: #fecaca;
+  background: #fee2e2;
+}
+
+.data-table {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+}
+
+.data-table th,
+.data-table td {
+  border-bottom: 1px solid var(--line);
+  padding: 0.75rem;
+  text-align: left;
+}
+
+.data-table th {
+  color: var(--muted);
+  font-size: 0.74rem;
+  text-transform: uppercase;
+}
+
 .metric-label {
   color: var(--muted);
   font-size: 0.78rem;

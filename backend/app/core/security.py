@@ -16,8 +16,11 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from app.core.app_database import get_app_session
+from app.core.env import load_backend_env
 from app.models import User, UserRole
 
+
+load_backend_env()
 
 PASSWORD_ITERATIONS = 210_000
 OTP_ITERATIONS = 120_000

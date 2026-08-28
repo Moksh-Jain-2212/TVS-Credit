@@ -6,18 +6,21 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.core.env import load_backend_env
+
+load_backend_env()
+
 from app import models  # noqa: F401
 from app.api import admin as admin_routes
 from app.api import auth as auth_routes
 from app.api import user_applications
 from app.api.routes import router
-from app.core.app_database import AppBase, app_database_path, create_app_sqlite_engine
+from app.core.app_database import ensure_app_database
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-    engine = create_app_sqlite_engine(app_database_path())
-    AppBase.metadata.create_all(bind=engine)
+    ensure_app_database()
     yield
 
 

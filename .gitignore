@@ -12,6 +12,7 @@ data/raw/pkdd/*.asc
 data/processed/*
 !data/processed/.gitkeep
 data/*.db
+data/*.db.*
 models/*
 !models/.gitkeep
 

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import type { PlatformApplication, PlatformTransaction, RepaymentCandidate } from "@/lib/api";
 
@@ -170,16 +171,27 @@ export function TransactionTable({ transactions }: { transactions: PlatformTrans
 export function ProtectedRoute({ role, children }: { role: "USER" | "ADMIN"; children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const router = useRouter();
+  useEffect(() => {
+    if (loading) {
+      return;
+    }
+    if (!user) {
+      router.replace("/login");
+      return;
+    }
+    if (user.role !== role) {
+      router.replace(user.role === "ADMIN" ? "/admin/dashboard" : "/user/dashboard");
+    }
+  }, [loading, role, router, user]);
+
   if (loading) {
     return <div className="page-center">Loading session</div>;
   }
   if (!user) {
-    router.replace("/login");
-    return null;
+    return <div className="page-center">Redirecting</div>;
   }
   if (user.role !== role) {
-    router.replace(user.role === "ADMIN" ? "/admin/dashboard" : "/user/dashboard");
-    return null;
+    return <div className="page-center">Redirecting</div>;
   }
   return <AppShell>{children}</AppShell>;
 }

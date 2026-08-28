@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import os
+import sqlite3
+from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
 from collections.abc import Generator
 
+from sqlalchemy.exc import DatabaseError
 from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
@@ -26,7 +29,11 @@ def app_sqlite_url(db_path: Path = DEFAULT_APP_DB_PATH) -> str:
 
 def create_app_sqlite_engine(db_path: Path = DEFAULT_APP_DB_PATH) -> Engine:
     db_path.parent.mkdir(parents=True, exist_ok=True)
-    engine = create_engine(app_sqlite_url(db_path), future=True)
+    engine = create_engine(
+        app_sqlite_url(db_path),
+        connect_args={"check_same_thread": False},
+        future=True,
+    )
 
     @event.listens_for(engine, "connect")
     def enable_sqlite_foreign_keys(dbapi_connection: object, _: object) -> None:
@@ -39,6 +46,37 @@ def create_app_sqlite_engine(db_path: Path = DEFAULT_APP_DB_PATH) -> Engine:
 
 def create_app_session_factory(engine: Engine) -> sessionmaker:
     return sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
+
+
+def app_database_is_healthy(db_path: Path) -> bool:
+    if not db_path.exists():
+        return True
+    try:
+        with sqlite3.connect(db_path) as connection:
+            result = connection.execute("PRAGMA integrity_check;").fetchone()
+    except sqlite3.DatabaseError:
+        return False
+    return result is not None and result[0] == "ok"
+
+
+def quarantine_malformed_app_database(db_path: Path) -> Path:
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    quarantine_path = db_path.with_name(f"{db_path.name}.malformed-{timestamp}")
+    db_path.replace(quarantine_path)
+    return quarantine_path
+
+
+def ensure_app_database(db_path: Path | None = None, *, recover_malformed: bool = True) -> Path | None:
+    target_path = db_path or app_database_path()
+    quarantined_path: Path | None = None
+    if not app_database_is_healthy(target_path):
+        if not recover_malformed:
+            raise DatabaseError("PRAGMA integrity_check", {}, "application database is malformed")
+        quarantined_path = quarantine_malformed_app_database(target_path)
+        reset_app_engine_cache()
+    engine = create_app_sqlite_engine(target_path)
+    AppBase.metadata.create_all(bind=engine)
+    return quarantined_path
 
 
 def app_database_path() -> Path:

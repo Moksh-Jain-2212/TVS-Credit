@@ -7,7 +7,13 @@ import pytest
 from sqlalchemy import inspect, select
 from sqlalchemy.exc import IntegrityError, StatementError
 
-from app.core.app_database import AppBase, create_app_session_factory, create_app_sqlite_engine
+from app.core.app_database import (
+    AppBase,
+    app_database_is_healthy,
+    create_app_session_factory,
+    create_app_sqlite_engine,
+    ensure_app_database,
+)
 from app.core.database import create_session_factory, create_sqlite_engine
 from app.models import (
     Account,
@@ -60,6 +66,30 @@ def test_init_app_db_creates_application_tables(tmp_path: Path) -> None:
 
     inspector = inspect(create_app_sqlite_engine(db_path))
     assert APP_TABLES.issubset(set(inspector.get_table_names()))
+
+
+def test_ensure_app_database_recovers_malformed_app_db(tmp_path: Path) -> None:
+    db_path = tmp_path / "nadi_app.db"
+    db_path.write_bytes(b"not a sqlite database")
+
+    quarantined_path = ensure_app_database(db_path)
+
+    assert quarantined_path is not None
+    assert quarantined_path.exists()
+    assert quarantined_path.name.startswith("nadi_app.db.malformed-")
+    assert app_database_is_healthy(db_path)
+    inspector = inspect(create_app_sqlite_engine(db_path))
+    assert APP_TABLES.issubset(set(inspector.get_table_names()))
+
+
+def test_ensure_app_database_keeps_healthy_app_db(tmp_path: Path) -> None:
+    db_path = tmp_path / "nadi_app.db"
+    init_app_db(db_path)
+
+    quarantined_path = ensure_app_database(db_path)
+
+    assert quarantined_path is None
+    assert app_database_is_healthy(db_path)
 
 
 def test_init_app_db_keeps_pkdd_database_untouched(tmp_path: Path) -> None:

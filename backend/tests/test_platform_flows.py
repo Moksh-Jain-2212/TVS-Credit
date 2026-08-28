@@ -13,6 +13,7 @@ from app.core.app_database import (
     create_app_sqlite_engine,
     reset_app_engine_cache,
 )
+from app.core.env import load_backend_env
 from app.core.security import create_jwt, hash_secret, utc_now
 from app.main import app
 from app.models import OtpVerification, User, UserRole
@@ -380,3 +381,29 @@ def test_email_service_sends_smtp_message_with_tls(monkeypatch: pytest.MonkeyPat
     assert sent_messages[0]["To"] == "borrower@example.com"
     assert sent_messages[0]["Subject"] == "Your TVS NADI verification code"
     assert "123456" in sent_messages[0].get_content()
+
+
+def test_backend_env_loader_reads_smtp_settings_without_overriding_existing(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    env_path = tmp_path / ".env"
+    env_path.write_text(
+        "\n".join(
+            [
+                "OTP_DELIVERY_MODE=SMTP_EMAIL",
+                "SMTP_HOST=smtp.gmail.com",
+                "SMTP_PASSWORD='app password with spaces'",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.delenv("OTP_DELIVERY_MODE", raising=False)
+    monkeypatch.delenv("SMTP_HOST", raising=False)
+    monkeypatch.setenv("SMTP_PASSWORD", "already-set")
+
+    load_backend_env(env_path)
+
+    assert email_service.os.getenv("OTP_DELIVERY_MODE") == "SMTP_EMAIL"
+    assert email_service.os.getenv("SMTP_HOST") == "smtp.gmail.com"
+    assert email_service.os.getenv("SMTP_PASSWORD") == "already-set"

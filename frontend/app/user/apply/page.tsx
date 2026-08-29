@@ -15,10 +15,48 @@ import {
   submitPlatformApplication,
   updatePlatformApplication,
   type AlternativeDataStatus,
+  type BorrowerSegment,
   type PlatformApplication,
 } from "@/lib/api";
 
-const steps = ["Employment", "Loan Request", "Financials", "Evidence", "Review", "Submit"];
+const steps = ["Borrower Type", "Loan Request", "Financials", "Evidence", "Review", "Submit"];
+
+const segmentOptions: Array<{
+  value: BorrowerSegment;
+  title: string;
+  description: string;
+  evidence: string[];
+  employmentType: string;
+}> = [
+  {
+    value: "SALARIED",
+    title: "Salaried Employee",
+    description: "Regular salary from an employer.",
+    evidence: ["Bank statement", "Salary credits", "Existing EMI information"],
+    employmentType: "salaried",
+  },
+  {
+    value: "GIG_WORKER",
+    title: "Gig / Platform Worker",
+    description: "Delivery, mobility, freelancer, driver, platform or variable gig earnings.",
+    evidence: ["Bank / UPI history", "Platform settlements", "Mobility activity where relevant"],
+    employmentType: "gig_worker",
+  },
+  {
+    value: "SMALL_MERCHANT",
+    title: "Small Merchant",
+    description: "Shopkeeper, seller, small business or self-employed merchant.",
+    evidence: ["Bank / UPI history", "GST turnover", "Merchant / e-commerce settlements"],
+    employmentType: "small_merchant",
+  },
+  {
+    value: "INFORMAL_WORKER",
+    title: "Informal Worker",
+    description: "Variable or non-salaried earnings without formal payroll.",
+    evidence: ["Bank / UPI history", "Recurring credits", "Utility payment history"],
+    employmentType: "informal_worker",
+  },
+];
 
 export default function ApplyPage() {
   const { accessToken } = useAuth();
@@ -31,6 +69,7 @@ export default function ApplyPage() {
     requested_tenure: "12",
     loan_purpose: "Two wheeler purchase",
     employment_type: "salaried",
+    borrower_segment: "SALARIED" as BorrowerSegment,
     declared_monthly_income: "55000",
     declared_monthly_expenses: "22000",
     existing_monthly_emi: "0",
@@ -45,6 +84,7 @@ export default function ApplyPage() {
       requested_tenure: Number(form.requested_tenure),
       loan_purpose: form.loan_purpose,
       employment_type: form.employment_type,
+      borrower_segment: form.borrower_segment,
       declared_monthly_income: Number(form.declared_monthly_income),
       declared_monthly_expenses: Number(form.declared_monthly_expenses),
       existing_monthly_emi: Number(form.existing_monthly_emi),
@@ -190,15 +230,43 @@ export default function ApplyPage() {
       </div>
       <form className="mt-6 section-panel" onSubmit={submit}>
         {step === 0 ? (
-          <div className="grid gap-4 sm:grid-cols-2">
-            <label><span className="label">Employment Type</span><input className="field" value={form.employment_type} onChange={(event) => setForm({ ...form, employment_type: event.target.value })} /></label>
-            <label><span className="label">Loan Purpose</span><input className="field" value={form.loan_purpose} onChange={(event) => setForm({ ...form, loan_purpose: event.target.value })} /></label>
+          <div className="grid gap-4">
+            <div>
+              <h2 className="text-xl font-bold">Borrower Type</h2>
+              <p className="mt-2 text-sm text-[color:var(--muted)]">Choose how you primarily earn money so NADI can use the right financial calculations.</p>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              {segmentOptions.map((option) => {
+                const selected = form.borrower_segment === option.value;
+                return (
+                  <button
+                    className={`item-card min-h-[230px] text-left transition ${selected ? "border-[color:var(--accent)] ring-2 ring-red-100" : "hover:border-[color:var(--info)]"}`}
+                    key={option.value}
+                    type="button"
+                    onClick={() => setForm({ ...form, borrower_segment: option.value, employment_type: option.employmentType })}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <h3 className="font-bold">{option.title}</h3>
+                      <span className={selected ? "badge badge-good" : "badge badge-neutral"}>{selected ? "Selected" : "Choose"}</span>
+                    </div>
+                    <p className="mt-3 text-sm text-[color:var(--muted)]">{option.description}</p>
+                    <div className="mt-4">
+                      <div className="metric-label">Most useful evidence</div>
+                      <ul className="mt-2 grid gap-1 text-sm">
+                        {option.evidence.map((item) => <li key={item}>{item}</li>)}
+                      </ul>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         ) : null}
         {step === 1 ? (
           <div className="grid gap-4 sm:grid-cols-2">
             <label><span className="label">Requested Amount</span><input className="field" inputMode="numeric" value={form.requested_amount} onChange={(event) => setForm({ ...form, requested_amount: event.target.value })} /></label>
             <label><span className="label">Requested Tenure</span><input className="field" inputMode="numeric" value={form.requested_tenure} onChange={(event) => setForm({ ...form, requested_tenure: event.target.value })} /></label>
+            <label className="sm:col-span-2"><span className="label">Loan Purpose</span><input className="field" value={form.loan_purpose} onChange={(event) => setForm({ ...form, loan_purpose: event.target.value })} /></label>
           </div>
         ) : null}
         {step === 2 ? (
@@ -213,7 +281,9 @@ export default function ApplyPage() {
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <h2 className="text-xl font-bold">Behavioral Financial Evidence</h2>
-                <p className="mt-2 text-sm text-[color:var(--muted)]">Connect at least one consented source. Mock connectors use normalized aggregate records for local testing.</p>
+                <p className="mt-2 text-sm text-[color:var(--muted)]">
+                  {alternativeData?.borrower_segment_label ?? "Selected segment"} evidence is prioritized first. Other consented sources remain available.
+                </p>
               </div>
               <div className={alternativeData?.readiness.ready ? "badge badge-good" : "badge badge-warn"}>
                 {alternativeData?.readiness.connected_source_count ?? 0} connected
@@ -225,7 +295,9 @@ export default function ApplyPage() {
                   <div>
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <h3 className="font-bold">{source.label}</h3>
-                      <span className={source.active ? "badge badge-good" : "badge badge-neutral"}>{source.active ? "Connected" : "Not connected"}</span>
+                      <span className={source.active ? "badge badge-good" : source.segment_relevant ? "badge badge-info" : "badge badge-neutral"}>
+                        {source.active ? "Connected" : source.segment_relevant ? "Relevant" : "Available"}
+                      </span>
                     </div>
                     <p className="mt-3 text-sm text-[color:var(--muted)]">{source.requested}</p>
                     <p className="mt-3 text-sm">{source.why}</p>

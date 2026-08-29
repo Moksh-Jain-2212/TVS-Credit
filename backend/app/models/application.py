@@ -31,6 +31,13 @@ class NadiDecisionState(StrEnum):
     NOT_CURRENTLY_AFFORDABLE = "NOT_CURRENTLY_AFFORDABLE"
 
 
+class BorrowerSegment(StrEnum):
+    SALARIED = "SALARIED"
+    GIG_WORKER = "GIG_WORKER"
+    SMALL_MERCHANT = "SMALL_MERCHANT"
+    INFORMAL_WORKER = "INFORMAL_WORKER"
+
+
 class AdminDecisionState(StrEnum):
     APPROVE_REQUESTED = "APPROVE_REQUESTED"
     APPROVE_RECOMMENDED = "APPROVE_RECOMMENDED"
@@ -48,6 +55,13 @@ application_status_enum = Enum(
 nadi_decision_enum = Enum(
     NadiDecisionState,
     name="nadi_decision_state",
+    native_enum=False,
+    create_constraint=True,
+    validate_strings=True,
+)
+borrower_segment_enum = Enum(
+    BorrowerSegment,
+    name="borrower_segment",
     native_enum=False,
     create_constraint=True,
     validate_strings=True,
@@ -70,6 +84,7 @@ class LoanApplication(AppBase):
     requested_tenure: Mapped[int | None] = mapped_column(Integer, nullable=True)
     loan_purpose: Mapped[str | None] = mapped_column(String(255), nullable=True)
     employment_type: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    borrower_segment: Mapped[BorrowerSegment | None] = mapped_column(borrower_segment_enum, nullable=True)
     declared_monthly_income: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True)
     declared_monthly_expenses: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True)
     existing_monthly_emi: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True)

@@ -83,6 +83,7 @@ def valid_application_payload() -> dict:
         "requested_tenure": 12,
         "loan_purpose": "Two wheeler purchase",
         "employment_type": "salaried",
+        "borrower_segment": "SALARIED",
         "declared_monthly_income": 55000,
         "declared_monthly_expenses": 22000,
         "existing_monthly_emi": 0,
@@ -256,6 +257,7 @@ def test_complete_platform_underwriting_and_admin_decision_flow(platform_client)
     created = client.post("/user/applications", json=valid_application_payload(), headers=user_headers)
     assert created.status_code == 200
     application_id = created.json()["id"]
+    assert created.json()["borrower_segment"] == "SALARIED"
     assert client.get(f"/user/applications/{application_id}", headers=other_headers).status_code == 404
 
     connected = client.post(
@@ -269,6 +271,8 @@ def test_complete_platform_underwriting_and_admin_decision_flow(platform_client)
     assert submitted.status_code == 200
     submitted_body = submitted.json()
     assert submitted_body["application"]["status"] == "ADMIN_REVIEW"
+    assert submitted_body["underwriting"]["segment_analysis"]["borrower_segment"] == "SALARIED"
+    assert submitted_body["underwriting"]["segment_analysis"]["conservative_income"] is not None
     assert submitted_body["underwriting"]["nadi_decision_state"] in {
         "APPROVE",
         "SAFE_TO_LEARN",
@@ -284,6 +288,7 @@ def test_complete_platform_underwriting_and_admin_decision_flow(platform_client)
     detail = client.get(f"/admin/applications/{application_id}", headers=admin_headers)
     assert detail.status_code == 200
     assert detail.json()["nadi_recommendation"]["decision"] == submitted_body["underwriting"]["nadi_decision_state"]
+    assert detail.json()["segment_analysis"]["borrower_segment"] == "SALARIED"
     assert detail.json()["application"]["latest_admin_decision"] is None
 
     transactions = client.get(f"/admin/applications/{application_id}/transactions", headers=admin_headers)
@@ -368,6 +373,18 @@ def test_underwriting_failure_does_not_silently_approve(platform_client) -> None
 
     assert response.status_code == 422
     assert "Connect demo financial data" in response.json()["detail"]
+
+
+def test_invalid_borrower_segment_is_rejected(platform_client) -> None:
+    client, _ = platform_client
+    user_tokens = register_verify_login(client, "invalid-segment@example.com")
+    headers = auth_header(user_tokens["access_token"])
+    payload = valid_application_payload() | {"borrower_segment": "FORMAL_GST_SALARY_BLEND"}
+
+    response = client.post("/user/applications", json=payload, headers=headers)
+
+    assert response.status_code == 422
+    assert "borrower_segment" in str(response.json()["detail"])
 
 
 def test_email_service_sends_smtp_message_with_tls(monkeypatch: pytest.MonkeyPatch) -> None:

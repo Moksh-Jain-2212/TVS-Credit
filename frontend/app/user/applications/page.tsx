@@ -32,6 +32,7 @@ export default function UserApplicationsPage() {
               <div>
                 <div className="text-sm text-[color:var(--muted)]">Application #{application.id}</div>
                 <div className="mt-1 text-lg font-bold">{formatCurrency(application.requested_amount)}</div>
+                <div className="mt-1 text-xs font-bold text-[color:var(--muted)]">{application.borrower_segment?.replaceAll("_", " ") ?? "Borrower type not set"}</div>
               </div>
               <StatusBadge status={application.status} />
             </div>

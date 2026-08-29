@@ -39,6 +39,8 @@ def serialize_underwriting(result: UnderwritingResult | None) -> dict | None:
     if result is None:
         return None
     behavioral = result.behavioral_risk_assessment
+    governance = result.governance_metadata_json or {}
+    segment_analysis = governance.get("segment_analysis") if isinstance(governance, dict) else None
     return {
         "id": result.id,
         "risk_probability": decimal_or_none(result.risk_probability),
@@ -59,6 +61,7 @@ def serialize_underwriting(result: UnderwritingResult | None) -> dict | None:
         "loan_officer_explanation": result.loan_officer_explanation_json,
         "borrower_explanation": result.borrower_explanation_json,
         "repayment_envelope": result.repayment_envelope_json,
+        "segment_analysis": segment_analysis,
         "behavioral_risk": serialize_behavioral_assessment(behavioral),
         "model_version": result.model_version,
         "feature_schema_version": result.feature_schema_version,
@@ -113,6 +116,7 @@ def serialize_application(application: LoanApplication, *, borrower_safe: bool =
         "requested_tenure": application.requested_tenure,
         "loan_purpose": application.loan_purpose,
         "employment_type": application.employment_type,
+        "borrower_segment": application.borrower_segment,
         "declared_monthly_income": application.declared_monthly_income,
         "declared_monthly_expenses": application.declared_monthly_expenses,
         "existing_monthly_emi": application.existing_monthly_emi,

@@ -101,6 +101,8 @@ export type AnalysisResponse = {
     stress_probability: number;
     minimum_remaining_cash_buffer: number;
     worst_scenario: string | null;
+    scenario_results?: Array<Record<string, number | string | boolean | null>>;
+    scenario_survival?: Record<string, boolean>;
   };
   repayment_envelope: {
     all_evaluated_combinations: RepaymentCandidate[];
@@ -230,6 +232,7 @@ export type PlatformApplication = {
   requested_tenure: number | null;
   loan_purpose: string | null;
   employment_type: string | null;
+  borrower_segment: BorrowerSegment | null;
   declared_monthly_income: number | null;
   declared_monthly_expenses: number | null;
   existing_monthly_emi: number | null;
@@ -242,6 +245,20 @@ export type PlatformApplication = {
   latest_underwriting?: PlatformUnderwriting | null;
   latest_admin_decision?: PlatformAdminDecision | null;
   notifications?: string[];
+};
+
+export type BorrowerSegment = "SALARIED" | "GIG_WORKER" | "SMALL_MERCHANT" | "INFORMAL_WORKER";
+
+export type SegmentAnalysis = {
+  borrower_segment: BorrowerSegment;
+  borrower_segment_label: string;
+  common_financial_features: Record<string, number | string | null>;
+  segment_specific_features: Record<string, number | string | null>;
+  conservative_income: number | null;
+  sustainable_monthly_surplus: number | null;
+  income_interpretation: string;
+  relevant_evidence: string[];
+  connected_relevant_evidence: string[];
 };
 
 export type BehavioralRiskAssessment = {
@@ -278,6 +295,7 @@ export type PlatformUnderwriting = {
   decision_reasons: string[] | null;
   loan_officer_explanation?: Record<string, unknown> | null;
   borrower_explanation?: Record<string, unknown> | null;
+  segment_analysis?: SegmentAnalysis | null;
   behavioral_risk?: BehavioralRiskAssessment | null;
   repayment_envelope?: {
     all_evaluated_combinations: RepaymentCandidate[];
@@ -303,6 +321,7 @@ export type AdminApplicationRow = {
   id: number;
   applicant: string;
   applicant_email: string;
+  borrower_segment?: BorrowerSegment | null;
   requested_amount: number | null;
   requested_tenure: number | null;
   submitted_at: string | null;
@@ -335,6 +354,8 @@ export type AlternativeDataSource = {
   period_start: string | null;
   period_end: string | null;
   active: boolean;
+  segment_relevant?: boolean;
+  segment_priority?: number;
   snapshot?: {
     id: number;
     source_type: string;
@@ -350,6 +371,9 @@ export type AlternativeDataReadiness = {
   connected_source_count: number;
   connected_sources: string[];
   missing_sources: string[];
+  relevant_sources?: string[];
+  connected_relevant_sources?: string[];
+  missing_relevant_sources?: string[];
   behavioral_data_coverage: number;
   behavioral_assessment_confidence: number;
   message: string;
@@ -357,6 +381,8 @@ export type AlternativeDataReadiness = {
 
 export type AlternativeDataStatus = {
   application_id: number;
+  borrower_segment?: BorrowerSegment;
+  borrower_segment_label?: string;
   sources: AlternativeDataSource[];
   readiness: AlternativeDataReadiness;
 };
@@ -392,6 +418,7 @@ export type AdminApplicationDetail = {
   forecast: AnalysisResponse["forecast"] | null;
   stress_test: AnalysisResponse["stress_test"] | null;
   repayment_envelope: PlatformUnderwriting["repayment_envelope"];
+  segment_analysis?: SegmentAnalysis | null;
   risk: {
     probability: number | null;
     band: string | null;

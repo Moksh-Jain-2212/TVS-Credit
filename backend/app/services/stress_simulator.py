@@ -81,11 +81,10 @@ def simulate_scenario(
     worst_period = 0
     failed_periods = 0
     for period in range(1, tenure + 1):
-        expense_shock = (
-            scenario.expense_shock
-            if scenario.expense_shock_period is not None and period == scenario.expense_shock_period
-            else 0.0
-        )
+        if scenario.expense_shock_period is None:
+            expense_shock = scenario.expense_shock
+        else:
+            expense_shock = scenario.expense_shock if period == scenario.expense_shock_period else 0.0
         projected_buffer += scenario_monthly_cash_flow - emi - expense_shock
         if projected_buffer < min_buffer:
             min_buffer = projected_buffer
@@ -105,13 +104,52 @@ def simulate_scenario(
     }
 
 
+def segment_scenarios(row: pd.Series, policy: StressPolicy) -> list[StressScenario]:
+    segment = row.get("borrower_segment")
+    emergency_expense = max(5000.0, safe_float(row.get("mean_monthly_outflow"), 0.0) * 0.2)
+    recurring_cost_shock = safe_float(row.get("mean_monthly_outflow"), 0.0) * 0.15
+    if segment == "SALARIED":
+        return [
+            StressScenario("normal", 1.0, 0.0, "p50"),
+            StressScenario("salary_minus_10", 0.9, 0.0, "p50"),
+            StressScenario("salary_minus_20", 0.8, 0.0, "p50"),
+            StressScenario("temporary_income_interruption", 0.5, 0.0, "p10"),
+            StressScenario("emergency_expense", 1.0, emergency_expense, "p50", 1),
+        ]
+    if segment == "GIG_WORKER":
+        return [
+            StressScenario("normal", 1.0, 0.0, "p50"),
+            StressScenario("gig_earnings_minus_15", 0.85, 0.0, "p50"),
+            StressScenario("active_earning_days_minus_25", 0.75, 0.0, "p50"),
+            StressScenario("work_fuel_costs_plus_15", 1.0, recurring_cost_shock, "p50"),
+            StressScenario("low_demand_month", 0.85, 0.0, "p10"),
+        ]
+    if segment == "SMALL_MERCHANT":
+        return [
+            StressScenario("normal", 1.0, 0.0, "p50"),
+            StressScenario("sales_minus_20", 0.8, 0.0, "p50"),
+            StressScenario("business_expenses_plus_15", 1.0, recurring_cost_shock, "p50"),
+            StressScenario("refund_reversal_increase", 0.95, recurring_cost_shock, "p50"),
+            StressScenario("seasonal_downturn", 0.8, 0.0, "p10"),
+        ]
+    if segment == "INFORMAL_WORKER":
+        return [
+            StressScenario("normal", 1.0, 0.0, "p50"),
+            StressScenario("observed_inflow_minus_20", 0.8, 0.0, "p50"),
+            StressScenario("income_frequency_reduction", 0.75, 0.0, "p50"),
+            StressScenario("unexpected_expense", 1.0, emergency_expense, "p50", 1),
+            StressScenario("two_weak_earning_periods", 0.8, 0.0, "p10"),
+        ]
+    return policy.scenarios
+
+
 def simulate_borrower_stress(
     row: pd.Series,
     policy: StressPolicy,
 ) -> dict[str, Any]:
     scenario_results = [
         simulate_scenario(row, scenario, policy.survival_buffer_floor)
-        for scenario in policy.scenarios
+        for scenario in segment_scenarios(row, policy)
     ]
     worst = min(scenario_results, key=lambda item: item["minimum_remaining_cash_buffer"])
     stress_probability = max(item["stress_probability"] for item in scenario_results)

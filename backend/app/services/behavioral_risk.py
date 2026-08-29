@@ -22,6 +22,7 @@ from app.models import (
     DataConnectionStatus,
     LoanApplication,
 )
+from app.services.segment_analysis import SEGMENT_RELEVANT_SOURCES, normalize_borrower_segment
 
 
 POLICY_PATH = Path(__file__).resolve().parents[1] / "core" / "behavioral_risk_policy.json"
@@ -182,6 +183,8 @@ def assess_behavioral_risk(
 ) -> tuple[BehavioralRiskAssessment, dict[str, Any]]:
     policy = load_behavioral_policy()
     snapshots = latest_active_snapshots(session, application.id)
+    borrower_segment = normalize_borrower_segment(application)
+    relevant_sources = set(SEGMENT_RELEVANT_SOURCES[borrower_segment])
     weight_denominator = sum(policy.source_weights[source.value] for source in AlternativeSourceType)
     present_weight = sum(policy.source_weights[snapshot.source_type.value] for snapshot in snapshots)
     coverage = round(present_weight / weight_denominator, 3) if weight_denominator else 0.0
@@ -245,6 +248,7 @@ def assess_behavioral_risk(
         {
             "source": source.value,
             "connected": any(snapshot.source_type == source for snapshot in snapshots),
+            "segment_relevant": source.value in relevant_sources,
             "missing_is_adverse": False,
         }
         for source in AlternativeSourceType

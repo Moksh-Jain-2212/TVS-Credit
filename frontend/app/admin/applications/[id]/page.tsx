@@ -22,6 +22,7 @@ import {
   type AdminApplicationDetail,
   type GrokExplanation,
   type RepaymentCandidate,
+  type SegmentAnalysis,
 } from "@/lib/api";
 
 const decisions = [
@@ -46,6 +47,56 @@ function ValueLine({ label, value }: { label: string; value: string }) {
       <span className="text-[color:var(--muted)]">{label}</span>
       <span className="font-bold">{value}</span>
     </div>
+  );
+}
+
+function formatMetricValue(key: string, value: number | string | null | undefined): string {
+  if (typeof value === "number") {
+    if (/(ratio|volatility|stability|trend|regularity|consistency|strength)/.test(key)) {
+      return formatPercent(value);
+    }
+    if (/(amount|income|salary|turnover|expense|surplus|balance|emi|cash_flow|outflow|inflow|settlement)/.test(key)) {
+      return formatCurrency(value);
+    }
+    return String(Math.round(value * 100) / 100);
+  }
+  return value === null || value === undefined || value === "" ? "Not available" : String(value).replaceAll("_", " ");
+}
+
+function SegmentFinancialPanel({ analysis }: { analysis: SegmentAnalysis }) {
+  const segmentMetrics = Object.entries(analysis.segment_specific_features);
+  const commonMetrics = Object.entries(analysis.common_financial_features).slice(0, 8);
+  return (
+    <section className="section-panel">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="page-kicker">{analysis.borrower_segment_label}</p>
+          <h2 className="text-xl font-bold">Segment-Aware Capacity</h2>
+        </div>
+        <span className="badge badge-info">{analysis.borrower_segment.replaceAll("_", " ")}</span>
+      </div>
+      <p className="mt-3 text-sm text-[color:var(--muted)]">{analysis.income_interpretation}</p>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Metric label="Conservative Income" value={formatCurrency(analysis.conservative_income)} />
+        <Metric label="Sustainable Surplus" value={formatCurrency(analysis.sustainable_monthly_surplus)} />
+        <Metric label="Relevant Evidence" value={analysis.relevant_evidence.join(", ")} />
+        <Metric label="Connected Relevant" value={analysis.connected_relevant_evidence.length ? analysis.connected_relevant_evidence.join(", ") : "None"} />
+      </div>
+      <div className="mt-5 grid gap-5 lg:grid-cols-2">
+        <div>
+          <h3 className="font-bold">Common Financial Metrics</h3>
+          <div className="mt-3 grid gap-2">
+            {commonMetrics.map(([key, value]) => <ValueLine key={key} label={key.replaceAll("_", " ")} value={formatMetricValue(key, value)} />)}
+          </div>
+        </div>
+        <div>
+          <h3 className="font-bold">Relevant Segment Metrics</h3>
+          <div className="mt-3 grid gap-2">
+            {segmentMetrics.map(([key, value]) => <ValueLine key={key} label={key.replaceAll("_", " ")} value={formatMetricValue(key, value)} />)}
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -84,7 +135,9 @@ function DataSourceCoverage({ detail }: { detail: AdminApplicationDetail }) {
           <div className="item-card" key={source.source_type}>
             <div className="flex items-center justify-between gap-2">
               <span className="font-bold">{source.label}</span>
-              <span className={source.active ? "badge badge-good" : "badge badge-neutral"}>{source.active ? "Active" : "Missing"}</span>
+              <span className={source.active ? "badge badge-good" : source.segment_relevant ? "badge badge-info" : "badge badge-neutral"}>
+                {source.active ? "Active" : source.segment_relevant ? "Relevant" : "Optional"}
+              </span>
             </div>
             <ValueLine label="Mode" value={source.connection_mode ?? "NA"} />
             <ValueLine label="Quality" value={source.quality_score !== null ? `${Math.round(source.quality_score * 100)}%` : "NA"} />
@@ -126,6 +179,17 @@ function CashFlowAndStress({ detail }: { detail: AdminApplicationDetail }) {
           <Metric label="Worst scenario" value={detail.stress_test?.worst_scenario ?? "Not available"} />
           <Metric label="Minimum buffer" value={formatCurrency(detail.stress_test?.minimum_remaining_cash_buffer)} />
         </div>
+        {detail.stress_test?.scenario_results?.length ? (
+          <div className="mt-4 grid gap-2">
+            {detail.stress_test.scenario_results.map((scenario) => (
+              <ValueLine
+                key={String(scenario.scenario)}
+                label={String(scenario.scenario).replaceAll("_", " ")}
+                value={`${scenario.survived ? "Pass" : "Stress"} · ${formatCurrency(Number(scenario.minimum_remaining_cash_buffer ?? 0))}`}
+              />
+            ))}
+          </div>
+        ) : null}
       </div>
     </section>
   );
@@ -321,6 +385,7 @@ export default function AdminApplicationDetailPage() {
               <div className="mt-4 grid gap-3 text-sm">
                 <div>{detail.borrower.email}</div>
                 <div>{detail.borrower.phone ?? "No phone"}</div>
+                <div>{detail.application.borrower_segment?.replaceAll("_", " ") ?? "Borrower type not supplied"}</div>
                 <div>{detail.application.employment_type ?? "Employment not supplied"}</div>
               </div>
             </div>
@@ -339,6 +404,8 @@ export default function AdminApplicationDetailPage() {
             <Metric label="Declared Expenses" value={formatCurrency(detail.application.declared_monthly_expenses)} />
             <Metric label="Existing EMI" value={formatCurrency(detail.application.existing_monthly_emi)} />
           </section>
+
+          {detail.segment_analysis ? <SegmentFinancialPanel analysis={detail.segment_analysis} /> : null}
 
           <section className="grid gap-6 lg:grid-cols-[1fr_1fr]">
             <div className="section-panel">

@@ -135,6 +135,17 @@ def score_evidence_consistency(row: pd.Series) -> float:
 
 
 def score_usable_evidence_types(row: pd.Series) -> float:
+    relevant = row.get("segment_relevant_sources")
+    if isinstance(relevant, list) and relevant:
+        connected = row.get("alternative_data_sources")
+        connected_set = set(connected if isinstance(connected, list) else [])
+        relevant_score = len(connected_set.intersection(set(relevant))) / len(relevant)
+        common_checks = [
+            safe_float(row.get("months_of_history"), 0.0) > 0,
+            safe_float(row.get("mean_monthly_inflow"), 0.0) > 0,
+            value_present(row.get("average_balance")),
+        ]
+        return float((relevant_score + (sum(common_checks) / len(common_checks))) / 2.0)
     checks = [
         safe_float(row.get("months_of_history"), 0.0) > 0,
         safe_float(row.get("mean_monthly_inflow"), 0.0) > 0,

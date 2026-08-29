@@ -24,6 +24,7 @@ from app.services.finance import estimate_emi
 from app.services.live_cash_flow import LiveCashFlowInputs, estimate_live_cash_flow
 from app.services.repayment_envelope import generate_repayment_envelope, load_envelope_policy
 from app.services.risk_model_service import RiskModelPrediction, risk_model_service
+from app.services.segment_analysis import apply_segment_analysis, calculate_segment_analysis
 from app.services.stress_simulator import load_stress_policy, simulate_borrower_stress
 
 
@@ -220,6 +221,8 @@ def analyze_platform_application(session: Session, application: LoanApplication,
     base_model_risk_probability = model_prediction.probability if model_prediction else None
     if model_prediction is not None:
         row["historical_model_risk_probability"] = model_prediction.probability
+    segment_analysis = calculate_segment_analysis(application, row, latest_active_snapshots(session, application.id))
+    row = apply_segment_analysis(row, segment_analysis)
     behavioral_assessment, behavioral_context = assess_behavioral_risk(
         session,
         application,
@@ -314,6 +317,10 @@ def analyze_platform_application(session: Session, application: LoanApplication,
                 "evidence_mode": row.get("live_evidence_mode"),
                 "cash_flow_forecast_method": row.get("cash_flow_forecast_method"),
                 "cash_flow_forecast_limitations": row.get("cash_flow_forecast_limitations", []),
+                "stress_scenario_results": json.loads(row.get("stress_scenario_results", "[]")),
+                "stress_scenario_survival": json.loads(row.get("stress_scenario_survival", "{}")),
+                "segment_analysis": segment_analysis,
+                "segment_risk_use_policy": "borrower_segment selects relevant financial capacity and evidence calculations; it is not a direct repayment-risk feature",
             }
         ),
     )
@@ -329,6 +336,7 @@ def analyze_platform_application(session: Session, application: LoanApplication,
             entity_id=application.id,
             metadata_json={
                 "financial_data_source": application.financial_data_source,
+                "borrower_segment": row.get("borrower_segment"),
                 "nadi_decision_state": decision["decision_state"],
                 "base_model_risk_probability": base_model_risk_probability,
                 "model_version": model_prediction.model_version if model_prediction else None,

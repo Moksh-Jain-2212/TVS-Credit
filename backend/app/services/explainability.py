@@ -116,7 +116,16 @@ def loan_officer_view(row: pd.Series) -> dict[str, Any]:
         "capacity": {
             "expected_monthly_cash_flow": safe_float(row.get("cash_flow_forecast_p50")),
             "conservative_monthly_cash_flow": safe_float(row.get("cash_flow_forecast_p10")),
+            "conservative_income": safe_float(row.get("conservative_income")),
+            "sustainable_monthly_surplus": safe_float(row.get("sustainable_monthly_surplus")),
             "scheduled_payment": safe_float(row.get("scheduled_payment")),
+        },
+        "borrower_segment": {
+            "segment": row.get("borrower_segment"),
+            "label": row.get("borrower_segment_label"),
+            "income_interpretation": row.get("income_interpretation"),
+            "common_financial_features": row.get("common_financial_features") if isinstance(row.get("common_financial_features"), dict) else {},
+            "segment_specific_features": row.get("segment_specific_features") if isinstance(row.get("segment_specific_features"), dict) else {},
         },
         "stress_test_result": {
             "status": stress_result(stress_probability),
@@ -167,6 +176,7 @@ def borrower_view(row: pd.Series) -> dict[str, Any]:
     ]
     view = {
         "what_was_decided": borrower_decision_sentence(row),
+        "how_income_was_interpreted": row.get("income_interpretation"),
         "why": negative_factors(row)[:3],
         "what_information_was_strong": strong_info or ["the available account history was reviewed"],
         "what_uncertainty_remains": uncertainty,

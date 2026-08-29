@@ -12,6 +12,15 @@ import pandas as pd
 
 POLICY_PATH = Path(__file__).resolve().parents[1] / "core" / "evidence_ladder_policy.json"
 
+OPTION_SOURCE = {
+    "utility_history": "UTILITIES",
+    "gst_business_evidence": "GST",
+    "upi_payment_trends": "UPI",
+    "telecom_recharge_history": "TELECOM",
+    "ecommerce_settlement_history": "ECOMMERCE",
+    "mobility_activity_history": "MOBILITY",
+}
+
 
 @dataclass(frozen=True)
 class EvidenceOption:
@@ -71,6 +80,10 @@ def privacy_level(cost: float) -> str:
 
 
 def option_multiplier(row: pd.Series, option: EvidenceOption) -> float:
+    relevant_sources = row.get("segment_relevant_sources")
+    option_source = OPTION_SOURCE.get(option.name)
+    if option_source and isinstance(relevant_sources, list) and relevant_sources and option_source not in relevant_sources:
+        return 0.15
     months = safe_float(row.get("months_of_history"), 0.0)
     density = safe_float(row.get("transaction_density"), 0.0)
     confidence_score = safe_float(row.get("confidence_score"), 0.0)

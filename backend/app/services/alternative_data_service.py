@@ -24,6 +24,7 @@ from app.models import (
 )
 from app.services.alternative_data.registry import get_adapter, supported_sources
 from app.services.behavioral_risk import assess_behavioral_risk, latest_active_snapshot, latest_behavioral_assessment
+from app.services.segment_analysis import SEGMENT_LABELS, SEGMENT_RELEVANT_SOURCES, normalize_borrower_segment
 
 
 def enum_value(value: Any) -> Any:
@@ -118,17 +119,34 @@ def list_source_definitions() -> list[dict[str, Any]]:
 
 
 def application_sources(session: Session, application: LoanApplication) -> dict[str, Any]:
+    segment = normalize_borrower_segment(application)
+    relevant_sources = SEGMENT_RELEVANT_SOURCES[segment]
+    source_rows = []
+    for definition in supported_sources():
+        source_type = str(definition["source_type"])
+        source = parse_source(source_type)
+        priority = relevant_sources.index(source_type) if source_type in relevant_sources else len(relevant_sources) + 10
+        source_rows.append(
+            definition
+            | source_status(session, application.id, source)
+            | {
+                "segment_relevant": source_type in relevant_sources,
+                "segment_priority": priority,
+            }
+        )
+    source_rows.sort(key=lambda row: (row["segment_priority"], row["source_type"]))
     return {
         "application_id": application.id,
-        "sources": [
-            definition | source_status(session, application.id, parse_source(str(definition["source_type"])))
-            for definition in supported_sources()
-        ],
+        "borrower_segment": segment,
+        "borrower_segment_label": SEGMENT_LABELS[segment],
+        "sources": source_rows,
         "readiness": alternative_data_readiness(session, application),
     }
 
 
 def alternative_data_readiness(session: Session, application: LoanApplication) -> dict[str, Any]:
+    segment = normalize_borrower_segment(application)
+    relevant_sources = set(SEGMENT_RELEVANT_SOURCES[segment])
     connected = [
         status_row
         for status_row in (source_status(session, application.id, source) for source in AlternativeSourceType)
@@ -140,6 +158,11 @@ def alternative_data_readiness(session: Session, application: LoanApplication) -
         "connected_source_count": len(connected),
         "connected_sources": [row["source_type"] for row in connected],
         "missing_sources": [source.value for source in AlternativeSourceType if source.value not in {row["source_type"] for row in connected}],
+        "relevant_sources": sorted(relevant_sources),
+        "connected_relevant_sources": [row["source_type"] for row in connected if row["source_type"] in relevant_sources],
+        "missing_relevant_sources": [
+            source for source in sorted(relevant_sources) if source not in {row["source_type"] for row in connected}
+        ],
         "behavioral_data_coverage": float(assessment.behavioral_data_coverage) if assessment else 0,
         "behavioral_assessment_confidence": float(assessment.behavioral_assessment_confidence) if assessment else 0,
         "message": "Behavioral evidence connected" if connected else "Connect at least one behavioral evidence source",

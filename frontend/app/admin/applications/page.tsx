@@ -91,6 +91,7 @@ export default function AdminApplicationsPage() {
               <thead>
                 <tr>
                   <th>Applicant</th>
+                  <th>Type</th>
                   <th>Requested</th>
                   <th>Submitted</th>
                   <th>Current status</th>
@@ -106,6 +107,7 @@ export default function AdminApplicationsPage() {
                 {pageRows.map((application) => (
                   <tr key={application.id}>
                     <td><Link className="font-bold text-[color:var(--accent)]" href={`/admin/applications/${application.id}`}>{application.applicant}</Link><div className="text-xs text-[color:var(--muted)]">{application.applicant_email}</div></td>
+                    <td>{application.borrower_segment?.replaceAll("_", " ") ?? "NA"}</td>
                     <td>{formatCurrency(application.requested_amount)}</td>
                     <td>{application.submitted_at ? new Date(application.submitted_at).toLocaleDateString("en-IN") : "Not submitted"}</td>
                     <td><StatusBadge status={application.application_status} /></td>

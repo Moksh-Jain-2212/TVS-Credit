@@ -92,6 +92,9 @@ def ensure_sqlite_app_schema_columns(engine: Engine) -> None:
             "evidence_mode": "VARCHAR(64)",
             "governance_metadata_json": "JSON",
         },
+        "loan_applications": {
+            "borrower_segment": "VARCHAR(32)",
+        },
         "admin_decisions": {
             "override_metadata_json": "JSON",
             "second_review_required": "BOOLEAN NOT NULL DEFAULT 0",

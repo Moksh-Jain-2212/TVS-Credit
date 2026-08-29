@@ -170,7 +170,7 @@ export function ApplicationSummary({ application }: { application: PlatformAppli
       <div className="mt-4 grid gap-3 sm:grid-cols-3">
         <Metric label="Tenure" value={application.requested_tenure ? `${application.requested_tenure} months` : "Not set"} />
         <Metric label="Purpose" value={application.loan_purpose ?? "Not set"} />
-        <Metric label="Financial Data" value={application.demo_financial_profile_connected ? "Demo bank data connected" : "Not connected"} />
+        <Metric label="Borrower Type" value={application.latest_underwriting?.segment_analysis?.borrower_segment_label ?? application.borrower_segment?.replaceAll("_", " ") ?? "Not set"} />
       </div>
     </div>
   );

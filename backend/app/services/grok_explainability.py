@@ -96,6 +96,7 @@ def deidentified_input(session: Session, application: LoanApplication) -> dict[s
         "requested_tenure": application.requested_tenure,
         "loan_purpose": application.loan_purpose,
         "employment_type": application.employment_type,
+        "borrower_segment": application.borrower_segment.value if hasattr(application.borrower_segment, "value") else application.borrower_segment,
         "declared_monthly_income": decimal_or_none(application.declared_monthly_income),
         "declared_monthly_expenses": decimal_or_none(application.declared_monthly_expenses),
         "existing_monthly_emi": decimal_or_none(application.existing_monthly_emi),
@@ -113,6 +114,7 @@ def deidentified_input(session: Session, application: LoanApplication) -> dict[s
             "recommended_tenure": underwriting.get("recommended_tenure"),
             "nadi_decision_state": underwriting.get("nadi_decision_state"),
             "decision_reasons": underwriting.get("decision_reasons") or [],
+            "segment_analysis": underwriting.get("segment_analysis"),
         },
         "behavioral_sources": [
             {
@@ -120,6 +122,7 @@ def deidentified_input(session: Session, application: LoanApplication) -> dict[s
                 "active": source["active"],
                 "quality_score": source["quality_score"],
                 "connection_mode": source["connection_mode"],
+                "segment_relevant": source.get("segment_relevant"),
             }
             for source in sources["sources"]
         ],
@@ -239,4 +242,3 @@ def generate_explanation(session: Session, application: LoanApplication, *, forc
     session.add(explanation)
     session.commit()
     return serialize_ai_explanation(explanation) or {}
-

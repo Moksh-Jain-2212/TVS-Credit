@@ -164,6 +164,7 @@ def list_applications(
                 "id": application.id,
                 "applicant": application.user.name,
                 "applicant_email": application.user.email,
+                "borrower_segment": enum_value(application.borrower_segment),
                 "requested_amount": decimal_or_none(application.requested_amount),
                 "requested_tenure": application.requested_tenure,
                 "submitted_at": application.submitted_at.isoformat() if application.submitted_at else None,
@@ -288,6 +289,52 @@ def transactions_for_application(application: LoanApplication) -> dict:
     }
 
 
+def live_financial_profile(result: Any | None) -> dict | None:
+    if result is None:
+        return None
+    underwriting = serialize_underwriting(result) or {}
+    segment = underwriting.get("segment_analysis") or {}
+    common = segment.get("common_financial_features") or {}
+    return {
+        **common,
+        "borrower_segment": segment.get("borrower_segment"),
+        "borrower_segment_label": segment.get("borrower_segment_label"),
+        "conservative_income": segment.get("conservative_income"),
+        "sustainable_monthly_surplus": segment.get("sustainable_monthly_surplus"),
+        "income_interpretation": segment.get("income_interpretation"),
+        "segment_specific_features": segment.get("segment_specific_features") or {},
+        "confidence_score": decimal_or_none(result.confidence_score),
+        "confidence_band": result.confidence_band,
+    }
+
+
+def live_forecast(result: Any | None) -> dict | None:
+    if result is None:
+        return None
+    governance = result.governance_metadata_json or {}
+    return {
+        "status": "estimate_available" if result.cash_flow_p50 is not None else "insufficient_evidence",
+        "method": governance.get("cash_flow_forecast_method") if isinstance(governance, dict) else None,
+        "history_months": (governance.get("segment_analysis") or {}).get("common_financial_features", {}).get("months_history") if isinstance(governance, dict) else None,
+        "p10_conservative": decimal_or_none(result.cash_flow_p10),
+        "p50_expected": decimal_or_none(result.cash_flow_p50),
+        "p90_optimistic": decimal_or_none(result.cash_flow_p90),
+    }
+
+
+def live_stress_test(result: Any | None) -> dict | None:
+    if result is None:
+        return None
+    governance = result.governance_metadata_json or {}
+    return {
+        "stress_probability": decimal_or_none(result.stress_probability),
+        "minimum_remaining_cash_buffer": decimal_or_none(result.minimum_remaining_buffer),
+        "worst_scenario": result.worst_stress_scenario,
+        "scenario_results": governance.get("stress_scenario_results", []) if isinstance(governance, dict) else [],
+        "scenario_survival": governance.get("stress_scenario_survival", {}) if isinstance(governance, dict) else {},
+    }
+
+
 def application_detail(session: Session, application_id: int) -> dict:
     application = get_admin_application(session, application_id)
     result = latest_underwriting(application)
@@ -305,6 +352,7 @@ def application_detail(session: Session, application_id: int) -> dict:
     transactions = transactions_for_application(application)
     source_summary = application_sources(session, application)
     behavioral = latest_behavioral_assessment(session, application.id)
+    serialized_underwriting = serialize_underwriting(result) or {}
     return {
         "borrower": serialize_user(application.user),
         "application": serialize_application(application, borrower_safe=False),
@@ -316,10 +364,11 @@ def application_detail(session: Session, application_id: int) -> dict:
         "alternative_data": source_summary,
         "transaction_summary": transactions["summary"],
         "transactions": transactions["transactions"][:100],
-        "financial_profile": row_analysis.get("financial_profile") if row_analysis else None,
-        "forecast": row_analysis.get("forecast") if row_analysis else None,
-        "stress_test": row_analysis.get("stress_test") if row_analysis else None,
-        "repayment_envelope": (serialize_underwriting(result) or {}).get("repayment_envelope"),
+        "financial_profile": live_financial_profile(result) or (row_analysis.get("financial_profile") if row_analysis else None),
+        "forecast": live_forecast(result) or (row_analysis.get("forecast") if row_analysis else None),
+        "stress_test": live_stress_test(result) or (row_analysis.get("stress_test") if row_analysis else None),
+        "repayment_envelope": serialized_underwriting.get("repayment_envelope"),
+        "segment_analysis": serialized_underwriting.get("segment_analysis"),
         "risk": {
             "probability": decimal_or_none(result.risk_probability) if result else None,
             "band": risk_band(decimal_or_none(result.risk_probability) if result else None),

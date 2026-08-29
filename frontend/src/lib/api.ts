@@ -227,6 +227,21 @@ export type PlatformApplication = {
   notifications?: string[];
 };
 
+export type BehavioralRiskAssessment = {
+  id?: number;
+  base_model_risk_probability: number | null;
+  behavioral_risk_score: number | null;
+  behavioral_risk_probability: number | null;
+  combined_risk_probability: number | null;
+  behavioral_data_coverage: number | null;
+  behavioral_assessment_confidence: number | null;
+  source_coverage: Array<Record<string, unknown>>;
+  source_component_scores: Array<Record<string, unknown>>;
+  factor_contributions: Array<Record<string, unknown>>;
+  policy_version?: string | null;
+  created_at?: string;
+};
+
 export type PlatformUnderwriting = {
   id: number;
   risk_probability: number | null;
@@ -246,6 +261,7 @@ export type PlatformUnderwriting = {
   decision_reasons: string[] | null;
   loan_officer_explanation?: Record<string, unknown> | null;
   borrower_explanation?: Record<string, unknown> | null;
+  behavioral_risk?: BehavioralRiskAssessment | null;
   repayment_envelope?: {
     all_evaluated_combinations: RepaymentCandidate[];
     safe_combinations: RepaymentCandidate[];
@@ -275,6 +291,9 @@ export type AdminApplicationRow = {
   submitted_at: string | null;
   risk: string | null;
   risk_probability: number | null;
+  historical_model_risk_probability?: number | null;
+  behavioral_risk_probability?: number | null;
+  behavioral_data_coverage?: number | null;
   confidence_band: string | null;
   confidence_score: number | null;
   nadi_recommendation: string | null;
@@ -282,17 +301,96 @@ export type AdminApplicationRow = {
   final_admin_decision: string | null;
 };
 
+export type AlternativeDataSource = {
+  source_type: string;
+  label: string;
+  requested: string;
+  why: string;
+  excluded: string;
+  mock_available: boolean;
+  consent_status: string | null;
+  connection_status: string | null;
+  connection_mode: string | null;
+  connected_at: string | null;
+  last_refreshed_at: string | null;
+  quality_score: number | null;
+  period_start: string | null;
+  period_end: string | null;
+  active: boolean;
+  snapshot?: {
+    id: number;
+    source_type: string;
+    collected_at: string;
+    normalized_features: Record<string, unknown>;
+    data_quality: Record<string, unknown>;
+    provenance: Record<string, unknown>;
+  } | null;
+};
+
+export type AlternativeDataReadiness = {
+  ready: boolean;
+  connected_source_count: number;
+  connected_sources: string[];
+  missing_sources: string[];
+  behavioral_data_coverage: number;
+  behavioral_assessment_confidence: number;
+  message: string;
+};
+
+export type AlternativeDataStatus = {
+  application_id: number;
+  sources: AlternativeDataSource[];
+  readiness: AlternativeDataReadiness;
+};
+
+export type GrokExplanation = {
+  id: number;
+  provider: string;
+  model: string;
+  prompt_version: string;
+  status: string;
+  structured_response: {
+    executive_summary: string;
+    approval_recommendation: string;
+    risk_drivers: string[];
+    supportive_evidence: string[];
+    evidence_gaps: string[];
+    fair_lending_notes: string[];
+    borrower_friendly_summary: string;
+    questions_for_officer: string[];
+  };
+  error_metadata: Record<string, unknown> | null;
+  created_at: string;
+};
+
 export type AdminApplicationDetail = {
   borrower: AuthUser & { created_at: string };
   application: PlatformApplication & { source_account_id?: number; source_loan_id?: number };
   linked_financial_evidence: Record<string, string | null>;
+  alternative_data: AlternativeDataStatus;
   transaction_summary: Record<string, number | string | null>;
   transactions: PlatformTransaction[];
   financial_profile: AnalysisResponse["financial_profile"] | null;
   forecast: AnalysisResponse["forecast"] | null;
   stress_test: AnalysisResponse["stress_test"] | null;
   repayment_envelope: PlatformUnderwriting["repayment_envelope"];
-  risk: { probability: number | null; band: string | null };
+  risk: {
+    probability: number | null;
+    band: string | null;
+    historical_model_probability?: number | null;
+    behavioral_probability?: number | null;
+    combined_probability?: number | null;
+  };
+  behavioral_risk: {
+    score: number | null;
+    probability: number | null;
+    coverage: number | null;
+    assessment_confidence: number | null;
+    source_coverage: Array<Record<string, unknown>>;
+    source_component_scores: Array<Record<string, unknown>>;
+    factor_contributions: Array<Record<string, unknown>>;
+    policy_version: string | null;
+  };
   evidence_confidence: { score: number | null; band: string | null };
   nadi_recommendation: {
     decision: string | null;
@@ -305,6 +403,7 @@ export type AdminApplicationDetail = {
   explanations: {
     loan_officer: Record<string, unknown> | null;
     borrower: Record<string, unknown> | null;
+    grok: GrokExplanation | null;
   };
   admin_decisions: PlatformAdminDecision[];
   audit_history: { id: number; action: string; actor_user_id: number | null; created_at: string; metadata: Record<string, unknown> | null }[];
@@ -400,6 +499,39 @@ export function connectDemoFinancialProfile(id: number, token: string): Promise<
   );
 }
 
+export function getAlternativeDataStatus(id: number, token: string): Promise<AlternativeDataStatus> {
+  return platformRequest<AlternativeDataStatus>(`/user/applications/${id}/alternative-data`, undefined, token);
+}
+
+export function grantAlternativeDataConsent(id: number, sourceType: string, token: string): Promise<AlternativeDataSource> {
+  return platformRequest<AlternativeDataSource>(`/user/applications/${id}/alternative-data/${sourceType}/consent`, {
+    method: "POST",
+    body: JSON.stringify({ granted: true }),
+  }, token);
+}
+
+export function revokeAlternativeDataConsent(id: number, sourceType: string, token: string): Promise<AlternativeDataSource> {
+  return platformRequest<AlternativeDataSource>(`/user/applications/${id}/alternative-data/${sourceType}/consent`, {
+    method: "DELETE",
+  }, token);
+}
+
+export function connectMockAlternativeData(id: number, sourceType: string, token: string): Promise<AlternativeDataSource & { underwriting?: PlatformUnderwriting | null }> {
+  return platformRequest<AlternativeDataSource & { underwriting?: PlatformUnderwriting | null }>(
+    `/user/applications/${id}/alternative-data/${sourceType}/connect-mock`,
+    { method: "POST" },
+    token,
+  );
+}
+
+export function refreshAlternativeData(id: number, sourceType: string, token: string): Promise<AlternativeDataSource & { underwriting?: PlatformUnderwriting | null }> {
+  return platformRequest<AlternativeDataSource & { underwriting?: PlatformUnderwriting | null }>(
+    `/user/applications/${id}/alternative-data/${sourceType}/refresh`,
+    { method: "POST" },
+    token,
+  );
+}
+
 export function submitPlatformApplication(id: number, token: string): Promise<{ application: PlatformApplication; underwriting: PlatformUnderwriting }> {
   return platformRequest<{ application: PlatformApplication; underwriting: PlatformUnderwriting }>(
     `/user/applications/${id}/submit`,
@@ -437,6 +569,14 @@ export function decideAdminApplication(
     method: "POST",
     body: JSON.stringify(payload),
   }, token);
+}
+
+export function getGrokExplanation(id: number, token: string): Promise<GrokExplanation> {
+  return platformRequest<GrokExplanation>(`/admin/applications/${id}/grok-explanation`, undefined, token);
+}
+
+export function generateGrokExplanation(id: number, token: string): Promise<GrokExplanation> {
+  return platformRequest<GrokExplanation>(`/admin/applications/${id}/grok-explanation`, { method: "POST" }, token);
 }
 
 export function getBorrowers(): Promise<BorrowerSummary[]> {

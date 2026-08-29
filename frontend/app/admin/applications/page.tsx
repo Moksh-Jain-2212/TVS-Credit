@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ProtectedRoute, RiskBadge, StatusBadge, formatCurrency } from "@/components/platform";
+import { ProtectedRoute, RiskBadge, StatusBadge, formatCurrency, formatPercent } from "@/components/platform";
 import { useAuth } from "@/context/AuthContext";
 import { listAdminApplications, type AdminApplicationRow } from "@/lib/api";
 
@@ -27,6 +27,8 @@ export default function AdminApplicationsPage() {
               <th>Requested Amount</th>
               <th>Submitted Date</th>
               <th>Risk</th>
+              <th>Behavioral</th>
+              <th>Coverage</th>
               <th>Confidence</th>
               <th>NADI Recommendation</th>
               <th>Application Status</th>
@@ -39,6 +41,8 @@ export default function AdminApplicationsPage() {
                 <td>{formatCurrency(application.requested_amount)}</td>
                 <td>{application.submitted_at ? new Date(application.submitted_at).toLocaleDateString("en-IN") : "Not submitted"}</td>
                 <td><RiskBadge value={application.risk_probability} band={application.risk} /></td>
+                <td>{formatPercent(application.behavioral_risk_probability)}</td>
+                <td>{formatPercent(application.behavioral_data_coverage)}</td>
                 <td>{application.confidence_score ?? "NA"} · {application.confidence_band ?? "NA"}</td>
                 <td>{application.nadi_recommendation ?? "Pending"}</td>
                 <td><StatusBadge status={application.application_status} /></td>

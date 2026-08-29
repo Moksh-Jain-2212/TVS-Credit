@@ -1,0 +1,71 @@
+{
+  "policy_version": "behavioral-risk-v1",
+  "score_direction": "0 is lowest behavioral risk, 100 is highest behavioral risk",
+  "supported_sources": ["GST", "UPI", "TELECOM", "UTILITIES", "ECOMMERCE", "MOBILITY"],
+  "source_weights": {
+    "GST": 0.18,
+    "UPI": 0.25,
+    "TELECOM": 0.12,
+    "UTILITIES": 0.18,
+    "ECOMMERCE": 0.15,
+    "MOBILITY": 0.12
+  },
+  "minimum_calibrated_coverage": 0.34,
+  "behavioral_probability_scale": {
+    "min_probability": 0.05,
+    "max_probability": 0.65
+  },
+  "combination_policy": {
+    "declared_only_probability": 0.5,
+    "max_behavioral_overlay_weight": 0.45
+  },
+  "confidence_policy": {
+    "connected_source_weight": 0.35,
+    "quality_weight": 0.35,
+    "recency_weight": 0.2,
+    "consistency_weight": 0.1,
+    "stale_after_days": 120
+  },
+  "factor_weights": {
+    "GST": {
+      "filing_regularity": 0.25,
+      "turnover_trend": 0.2,
+      "turnover_volatility": 0.25,
+      "late_or_zero_filing_ratio": 0.2,
+      "business_inflow_consistency": 0.1
+    },
+    "UPI": {
+      "monthly_net_inflow": 0.25,
+      "inflow_stability": 0.2,
+      "frequency_stability": 0.15,
+      "failed_reversed_ratio": 0.25,
+      "concentration": 0.15
+    },
+    "TELECOM": {
+      "recharge_frequency": 0.25,
+      "interval_regularity": 0.25,
+      "long_gap_ratio": 0.25,
+      "spend_stability": 0.25
+    },
+    "UTILITIES": {
+      "on_time_payment_ratio": 0.35,
+      "late_or_missed_ratio": 0.3,
+      "arrears_trend": 0.15,
+      "bill_amount_stability": 0.1,
+      "payment_continuity": 0.1
+    },
+    "ECOMMERCE": {
+      "settlement_consistency": 0.25,
+      "settlement_trend": 0.2,
+      "refund_reversal_rate": 0.3,
+      "merchant_revenue_stability": 0.25
+    },
+    "MOBILITY": {
+      "vehicle_active_month_ratio": 0.25,
+      "usage_consistency": 0.25,
+      "distance_trend": 0.15,
+      "fuel_toll_payment_regularity": 0.2,
+      "maintenance_regularity": 0.15
+    }
+  }
+}

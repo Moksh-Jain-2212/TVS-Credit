@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Metric, ProtectedRoute, StatusBadge, formatCurrency } from "@/components/platform";
+import { Metric, ProtectedRoute, StatusBadge, formatCurrency, formatPercent } from "@/components/platform";
 import { useAuth } from "@/context/AuthContext";
 import { getAdminDashboard, type AdminApplicationRow } from "@/lib/api";
 
@@ -42,7 +42,12 @@ export default function AdminDashboardPage() {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <div className="font-bold">{application.applicant}</div>
-                  <div className="text-sm text-[color:var(--muted)]">{formatCurrency(application.requested_amount)} · {application.nadi_recommendation ?? "NADI pending"}</div>
+                  <div className="text-sm text-[color:var(--muted)]">
+                    {formatCurrency(application.requested_amount)} · {application.nadi_recommendation ?? "NADI pending"} · risk {formatPercent(application.risk_probability)}
+                  </div>
+                  <div className="mt-1 text-xs text-[color:var(--muted)]">
+                    Behavioral {formatPercent(application.behavioral_risk_probability)} · coverage {formatPercent(application.behavioral_data_coverage)}
+                  </div>
                 </div>
                 <StatusBadge status={application.application_status} />
               </div>

@@ -32,6 +32,38 @@
       "privacy_cost": 4,
       "mocked_available": true,
       "reason": "GST or business evidence can support income consistency for self-employed borrowers."
+    },
+    {
+      "name": "upi_payment_trends",
+      "base_confidence_gain": 13,
+      "friction_cost": 2,
+      "privacy_cost": 3,
+      "mocked_available": true,
+      "reason": "UPI aggregates can improve cash-flow and transaction-frequency confidence without raw counterparties."
+    },
+    {
+      "name": "telecom_recharge_history",
+      "base_confidence_gain": 6,
+      "friction_cost": 1,
+      "privacy_cost": 1,
+      "mocked_available": true,
+      "reason": "Recharge continuity can add low-friction behavioral evidence for thin-file applicants."
+    },
+    {
+      "name": "ecommerce_settlement_history",
+      "base_confidence_gain": 11,
+      "friction_cost": 3,
+      "privacy_cost": 3,
+      "mocked_available": true,
+      "reason": "Seller settlement aggregates can support merchant revenue stability."
+    },
+    {
+      "name": "mobility_activity_history",
+      "base_confidence_gain": 8,
+      "friction_cost": 2,
+      "privacy_cost": 2,
+      "mocked_available": true,
+      "reason": "Vehicle activity aggregates can support income continuity for mobility-linked work."
     }
   ]
 }

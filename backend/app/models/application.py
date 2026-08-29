@@ -99,6 +99,26 @@ class LoanApplication(AppBase):
         back_populates="application",
         cascade="all, delete-orphan",
     )
+    alternative_data_consents: Mapped[list["AlternativeDataConsent"]] = relationship(
+        back_populates="application",
+        cascade="all, delete-orphan",
+    )
+    alternative_data_connections: Mapped[list["AlternativeDataConnection"]] = relationship(
+        back_populates="application",
+        cascade="all, delete-orphan",
+    )
+    alternative_data_snapshots: Mapped[list["AlternativeDataSnapshot"]] = relationship(
+        back_populates="application",
+        cascade="all, delete-orphan",
+    )
+    behavioral_risk_assessments: Mapped[list["BehavioralRiskAssessment"]] = relationship(
+        back_populates="application",
+        cascade="all, delete-orphan",
+    )
+    ai_explanations: Mapped[list["AIExplanation"]] = relationship(
+        back_populates="application",
+        cascade="all, delete-orphan",
+    )
 
 
 class UnderwritingResult(AppBase):
@@ -131,6 +151,11 @@ class UnderwritingResult(AppBase):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
 
     application: Mapped[LoanApplication] = relationship(back_populates="underwriting_results")
+    behavioral_risk_assessment: Mapped["BehavioralRiskAssessment | None"] = relationship(
+        back_populates="underwriting_result",
+        uselist=False,
+    )
+    ai_explanations: Mapped[list["AIExplanation"]] = relationship(back_populates="underwriting_result")
 
 
 class AdminDecision(AppBase):

@@ -7,7 +7,7 @@ from typing import Any
 
 from fastapi import HTTPException, status
 from sqlalchemy import desc, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, object_session
 
 from app.models import AdminDecision, ApplicationStatus, AuditLog, LoanApplication, UnderwritingResult, User
 from app.schemas.application import LoanApplicationCreateRequest, LoanApplicationUpdateRequest, RequiredApplicationFields
@@ -38,6 +38,7 @@ def latest_admin_decision(application: LoanApplication) -> AdminDecision | None:
 def serialize_underwriting(result: UnderwritingResult | None) -> dict | None:
     if result is None:
         return None
+    behavioral = result.behavioral_risk_assessment
     return {
         "id": result.id,
         "risk_probability": decimal_or_none(result.risk_probability),
@@ -58,7 +59,27 @@ def serialize_underwriting(result: UnderwritingResult | None) -> dict | None:
         "loan_officer_explanation": result.loan_officer_explanation_json,
         "borrower_explanation": result.borrower_explanation_json,
         "repayment_envelope": result.repayment_envelope_json,
+        "behavioral_risk": serialize_behavioral_assessment(behavioral),
         "created_at": result.created_at.isoformat(),
+    }
+
+
+def serialize_behavioral_assessment(assessment: Any | None) -> dict | None:
+    if assessment is None:
+        return None
+    return {
+        "id": assessment.id,
+        "base_model_risk_probability": decimal_or_none(assessment.base_model_risk_probability),
+        "behavioral_risk_score": decimal_or_none(assessment.behavioral_risk_score),
+        "behavioral_risk_probability": decimal_or_none(assessment.behavioral_risk_probability),
+        "combined_risk_probability": decimal_or_none(assessment.combined_risk_probability),
+        "behavioral_data_coverage": decimal_or_none(assessment.behavioral_data_coverage),
+        "behavioral_assessment_confidence": decimal_or_none(assessment.behavioral_assessment_confidence),
+        "source_coverage": assessment.source_coverage_json,
+        "source_component_scores": assessment.source_component_scores_json,
+        "factor_contributions": assessment.factor_contributions_json,
+        "policy_version": assessment.policy_version,
+        "created_at": assessment.created_at.isoformat(),
     }
 
 
@@ -179,16 +200,20 @@ def connect_demo_financial_profile(session: Session, user: User, application_id:
 
 
 def validate_ready_to_submit(application: LoanApplication) -> None:
+    from app.services.alternative_data_service import alternative_data_readiness
+
     missing = []
     for field in RequiredApplicationFields.model_fields:
         if getattr(application, field) in {None, ""}:
             missing.append(field)
     if missing:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail={"missing_fields": missing})
-    if application.financial_data_source != "PKDD_DEMO":
+    session = object_session(application)
+    readiness = alternative_data_readiness(session, application) if session is not None else {"ready": False}
+    if application.financial_data_source != "PKDD_DEMO" and not readiness["ready"]:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Connect demo financial data before submission",
+            detail="Connect demo financial data or at least one behavioral evidence source before submission",
         )
 
 

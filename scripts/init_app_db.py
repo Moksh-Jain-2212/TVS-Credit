@@ -14,7 +14,12 @@ if str(BACKEND_ROOT) not in sys.path:
 from app.core.app_database import DEFAULT_APP_DB_PATH, AppBase, create_app_sqlite_engine, ensure_app_database
 from app.models import (  # noqa: F401
     AdminDecision,
+    AIExplanation,
+    AlternativeDataConnection,
+    AlternativeDataConsent,
+    AlternativeDataSnapshot,
     AuditLog,
+    BehavioralRiskAssessment,
     LoanApplication,
     OtpVerification,
     RefreshSession,

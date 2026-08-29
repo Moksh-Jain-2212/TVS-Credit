@@ -85,6 +85,13 @@ def option_multiplier(row: pd.Series, option: EvidenceOption) -> float:
         return 0.6 + confidence_deficit
     if option.name == "gst_business_evidence":
         return 0.6 + (0.4 if seasonality_insufficient else 0.0) + confidence_deficit
+    if option.name in {
+        "upi_payment_trends",
+        "telecom_recharge_history",
+        "ecommerce_settlement_history",
+        "mobility_activity_history",
+    }:
+        return 0.7 + min(1.0, max(0.0, 6.0 - months) / 6.0) + confidence_deficit
     return 1.0
 
 

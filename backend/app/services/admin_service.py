@@ -25,6 +25,7 @@ from app.models import (
 )
 from app.schemas.admin import AdminDecisionRequest
 from app.services import application_repository
+from app.services.alternative_data_service import application_sources
 from app.services.application_service import (
     decimal_or_none,
     latest_admin_decision,
@@ -33,6 +34,8 @@ from app.services.application_service import (
     serialize_application,
     serialize_underwriting,
 )
+from app.services.behavioral_risk import latest_behavioral_assessment
+from app.services.grok_explainability import generate_explanation, latest_explanation, serialize_ai_explanation
 from app.services.live_underwriting import analyze_platform_application
 
 
@@ -134,6 +137,21 @@ def list_applications(
                 "submitted_at": application.submitted_at.isoformat() if application.submitted_at else None,
                 "risk": current_risk_band,
                 "risk_probability": decimal_or_none(result.risk_probability) if result else None,
+                "historical_model_risk_probability": (
+                    decimal_or_none(result.behavioral_risk_assessment.base_model_risk_probability)
+                    if result and result.behavioral_risk_assessment
+                    else None
+                ),
+                "behavioral_risk_probability": (
+                    decimal_or_none(result.behavioral_risk_assessment.behavioral_risk_probability)
+                    if result and result.behavioral_risk_assessment
+                    else None
+                ),
+                "behavioral_data_coverage": (
+                    decimal_or_none(result.behavioral_risk_assessment.behavioral_data_coverage)
+                    if result and result.behavioral_risk_assessment
+                    else None
+                ),
                 "confidence_band": result.confidence_band if result else None,
                 "confidence_score": decimal_or_none(result.confidence_score) if result else None,
                 "nadi_recommendation": enum_value(result.nadi_decision_state) if result else None,
@@ -252,6 +270,8 @@ def application_detail(session: Session, application_id: int) -> dict:
         .order_by(AuditLog.created_at)
     ).all()
     transactions = transactions_for_application(application)
+    source_summary = application_sources(session, application)
+    behavioral = latest_behavioral_assessment(session, application.id)
     return {
         "borrower": serialize_user(application.user),
         "application": serialize_application(application, borrower_safe=False),
@@ -260,6 +280,7 @@ def application_detail(session: Session, application_id: int) -> dict:
             "label": "Demo bank data connected" if application.financial_data_source == "PKDD_DEMO" else None,
             "temporal_leakage_note": "UNDERWRITING_EVIDENCE is limited to the original pre-loan PKDD snapshot.",
         },
+        "alternative_data": source_summary,
         "transaction_summary": transactions["summary"],
         "transactions": transactions["transactions"][:100],
         "financial_profile": row_analysis.get("financial_profile") if row_analysis else None,
@@ -269,6 +290,25 @@ def application_detail(session: Session, application_id: int) -> dict:
         "risk": {
             "probability": decimal_or_none(result.risk_probability) if result else None,
             "band": risk_band(decimal_or_none(result.risk_probability) if result else None),
+            "historical_model_probability": (
+                decimal_or_none(behavioral.base_model_risk_probability) if behavioral else None
+            ),
+            "behavioral_probability": (
+                decimal_or_none(behavioral.behavioral_risk_probability) if behavioral else None
+            ),
+            "combined_probability": (
+                decimal_or_none(behavioral.combined_risk_probability) if behavioral else decimal_or_none(result.risk_probability) if result else None
+            ),
+        },
+        "behavioral_risk": {
+            "score": decimal_or_none(behavioral.behavioral_risk_score) if behavioral else None,
+            "probability": decimal_or_none(behavioral.behavioral_risk_probability) if behavioral else None,
+            "coverage": decimal_or_none(behavioral.behavioral_data_coverage) if behavioral else None,
+            "assessment_confidence": decimal_or_none(behavioral.behavioral_assessment_confidence) if behavioral else None,
+            "source_coverage": behavioral.source_coverage_json if behavioral else [],
+            "source_component_scores": behavioral.source_component_scores_json if behavioral else [],
+            "factor_contributions": behavioral.factor_contributions_json if behavioral else [],
+            "policy_version": behavioral.policy_version if behavioral else None,
         },
         "evidence_confidence": {
             "score": decimal_or_none(result.confidence_score) if result else None,
@@ -285,10 +325,21 @@ def application_detail(session: Session, application_id: int) -> dict:
         "explanations": {
             "loan_officer": result.loan_officer_explanation_json if result else None,
             "borrower": result.borrower_explanation_json if result else None,
+            "grok": serialize_ai_explanation(latest_explanation(session, application.id)),
         },
         "admin_decisions": [serialize_admin_decision(decision) for decision in application.admin_decisions],
         "audit_history": [serialize_audit(log) for log in audit],
     }
+
+
+def get_grok_explanation(session: Session, application_id: int) -> dict:
+    application = get_admin_application(session, application_id)
+    return serialize_ai_explanation(latest_explanation(session, application.id)) or generate_explanation(session, application)
+
+
+def generate_grok_explanation(session: Session, application_id: int) -> dict:
+    application = get_admin_application(session, application_id)
+    return generate_explanation(session, application, force_refresh=True)
 
 
 def analyze_application(session: Session, admin: User, application_id: int) -> dict:

@@ -56,6 +56,24 @@ def get_application(
     return admin_service.application_detail(session, application_id)
 
 
+@router.get("/applications/{application_id}/grok-explanation")
+def get_grok_explanation(
+    application_id: int,
+    current_user: User = Depends(require_admin),
+    session: Session = Depends(get_app_session),
+) -> dict:
+    return admin_service.get_grok_explanation(session, application_id)
+
+
+@router.post("/applications/{application_id}/grok-explanation")
+def generate_grok_explanation(
+    application_id: int,
+    current_user: User = Depends(require_admin),
+    session: Session = Depends(get_app_session),
+) -> dict:
+    return admin_service.generate_grok_explanation(session, application_id)
+
+
 @router.get("/applications/{application_id}/transactions")
 def get_transactions(
     application_id: int,

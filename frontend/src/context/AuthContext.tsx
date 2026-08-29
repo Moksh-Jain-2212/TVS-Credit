@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { getMe, login as loginRequest, refreshToken, type AuthUser } from "@/lib/api";
+import { getMe, login as loginRequest, logoutSession, refreshToken, type AuthUser } from "@/lib/api";
 
 type AuthContextValue = {
   user: AuthUser | null;
@@ -36,6 +36,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   function logout() {
+    const storedAccess = localStorage.getItem(ACCESS_KEY);
+    const storedRefresh = localStorage.getItem(REFRESH_KEY);
+    logoutSession(storedRefresh, storedAccess).catch(() => undefined);
     localStorage.removeItem(ACCESS_KEY);
     localStorage.removeItem(REFRESH_KEY);
     setAccessToken(null);

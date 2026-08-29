@@ -121,6 +121,16 @@ def factor_direction(score: float) -> str:
     return "neutral"
 
 
+def score_band(score: float | None) -> str | None:
+    if score is None:
+        return None
+    if score < 34:
+        return "low"
+    if score < 67:
+        return "medium"
+    return "high"
+
+
 def source_score(source: AlternativeSourceType, features: dict[str, Any], policy: BehavioralRiskPolicy) -> tuple[float, list[dict[str, Any]]]:
     factor_scores = features.get("factor_scores") or {}
     weights = policy.factor_weights[source.value]
@@ -243,7 +253,9 @@ def assess_behavioral_risk(
         application=application,
         base_model_risk_probability=base_model_risk_probability,
         behavioral_risk_score=behavioral_score,
+        behavioral_score_band=score_band(behavioral_score),
         behavioral_risk_probability=behavioral_probability_value,
+        behavioral_probability_calibration_status="POLICY_HEURISTIC",
         combined_risk_probability=combined_probability,
         behavioral_data_coverage=coverage,
         behavioral_assessment_confidence=confidence,

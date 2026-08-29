@@ -60,6 +60,11 @@ def serialize_underwriting(result: UnderwritingResult | None) -> dict | None:
         "borrower_explanation": result.borrower_explanation_json,
         "repayment_envelope": result.repayment_envelope_json,
         "behavioral_risk": serialize_behavioral_assessment(behavioral),
+        "model_version": result.model_version,
+        "feature_schema_version": result.feature_schema_version,
+        "underwriting_engine_version": result.underwriting_engine_version,
+        "evidence_mode": result.evidence_mode,
+        "governance_metadata": result.governance_metadata_json,
         "created_at": result.created_at.isoformat(),
     }
 
@@ -71,7 +76,9 @@ def serialize_behavioral_assessment(assessment: Any | None) -> dict | None:
         "id": assessment.id,
         "base_model_risk_probability": decimal_or_none(assessment.base_model_risk_probability),
         "behavioral_risk_score": decimal_or_none(assessment.behavioral_risk_score),
+        "behavioral_score_band": assessment.behavioral_score_band,
         "behavioral_risk_probability": decimal_or_none(assessment.behavioral_risk_probability),
+        "behavioral_probability_calibration_status": assessment.behavioral_probability_calibration_status,
         "combined_risk_probability": decimal_or_none(assessment.combined_risk_probability),
         "behavioral_data_coverage": decimal_or_none(assessment.behavioral_data_coverage),
         "behavioral_assessment_confidence": decimal_or_none(assessment.behavioral_assessment_confidence),
@@ -93,6 +100,8 @@ def serialize_admin_decision(decision: AdminDecision | None) -> dict | None:
         "approved_tenure": decision.approved_tenure,
         "approved_emi": decimal_or_none(decision.approved_emi),
         "remarks": decision.remarks,
+        "override_metadata": decision.override_metadata_json,
+        "second_review_required": decision.second_review_required,
         "created_at": decision.created_at.isoformat(),
     }
 

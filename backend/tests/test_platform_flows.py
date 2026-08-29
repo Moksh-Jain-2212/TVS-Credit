@@ -17,6 +17,8 @@ from app.core.env import load_backend_env
 from app.core.security import create_jwt, hash_secret, utc_now
 from app.main import app
 from app.models import OtpVerification, User, UserRole
+from app.services.finance import estimate_emi
+from app.services.repayment_envelope import load_envelope_policy
 from app.services import email_service, otp_service
 from scripts.init_app_db import init_app_db
 
@@ -108,6 +110,7 @@ def test_auth_otp_jwt_refresh_and_rbac(platform_client) -> None:
     login = client.post("/auth/login", json={"email": "new@example.com", "password": "strong-pass-1"})
     assert login.status_code == 200
     tokens = login.json()
+    assert tokens["token_type"] == "bearer"
     assert client.get("/auth/me", headers=auth_header(tokens["access_token"])).status_code == 200
     assert client.get("/admin/dashboard", headers=auth_header(tokens["access_token"])).status_code == 403
 
@@ -121,6 +124,7 @@ def test_auth_otp_jwt_refresh_and_rbac(platform_client) -> None:
     create_admin(db_path)
     admin_login = client.post("/auth/login", json={"email": "admin@example.com", "password": "admin-pass-1"})
     assert admin_login.status_code == 200
+    assert admin_login.json()["token_type"] == "bearer"
     assert client.get("/admin/dashboard", headers=auth_header(admin_login.json()["access_token"])).status_code == 200
 
 
@@ -298,6 +302,41 @@ def test_complete_platform_underwriting_and_admin_decision_flow(platform_client)
     assert decided["application"]["latest_underwriting"]["nadi_decision_state"] == detail.json()["nadi_recommendation"]["decision"]
     assert decided["application"]["latest_admin_decision"]["decision"] == "APPROVE_RECOMMENDED"
     assert any(log["action"] == "ADMIN_DECISION_CREATED" for log in decided["audit_history"])
+
+
+def test_admin_approve_requested_uses_new_loan_emi_and_requires_override_reason(platform_client) -> None:
+    client, db_path = platform_client
+    user_tokens = register_verify_login(client, "override@example.com")
+    user_headers = auth_header(user_tokens["access_token"])
+    create_admin(db_path)
+    admin_tokens = client.post("/auth/login", json={"email": "admin@example.com", "password": "admin-pass-1"}).json()
+    admin_headers = auth_header(admin_tokens["access_token"])
+    created = client.post("/user/applications", json=valid_application_payload(), headers=user_headers)
+    application_id = created.json()["id"]
+    client.post(f"/user/applications/{application_id}/connect-demo-financial-profile", headers=user_headers)
+    submitted = client.post(f"/user/applications/{application_id}/submit", headers=user_headers)
+    assert submitted.status_code == 200
+
+    without_reason = client.post(
+        f"/admin/applications/{application_id}/decision",
+        json={"decision": "APPROVE_REQUESTED"},
+        headers=admin_headers,
+    )
+    if without_reason.status_code == 422:
+        approved = client.post(
+            f"/admin/applications/{application_id}/decision",
+            json={"decision": "APPROVE_REQUESTED", "remarks": "Documented compensating business evidence."},
+            headers=admin_headers,
+        )
+    else:
+        approved = without_reason
+    assert approved.status_code == 200
+    decision = approved.json()["application"]["latest_admin_decision"]
+    expected = round(estimate_emi(100000, 12, load_envelope_policy().annual_interest_rate), 2)
+    assert decision["approved_emi"] == expected
+    assert decision["approved_emi"] != valid_application_payload()["existing_monthly_emi"]
+    if decision["override_metadata"]["override"]:
+        assert decision["override_metadata"]["override_reason"]
 
     duplicate = client.post(
         f"/admin/applications/{application_id}/decision",

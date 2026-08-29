@@ -33,6 +33,7 @@ def list_applications(
     risk_band: str | None = None,
     confidence_band: str | None = None,
     limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
     current_user: User = Depends(require_admin),
     session: Session = Depends(get_app_session),
 ) -> list[dict]:
@@ -44,6 +45,7 @@ def list_applications(
         risk=risk_band,
         confidence=confidence_band,
         limit=limit,
+        offset=offset,
     )
 
 

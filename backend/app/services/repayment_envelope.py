@@ -9,6 +9,8 @@ from typing import Any
 
 import pandas as pd
 
+from app.services.finance import estimate_emi
+
 
 POLICY_PATH = Path(__file__).resolve().parents[1] / "core" / "repayment_envelope_policy.json"
 
@@ -37,14 +39,6 @@ def safe_float(value: Any, default: float = 0.0) -> float:
     if pd.isna(value):
         return default
     return float(value)
-
-
-def estimate_emi(amount: float, tenure_months: int, annual_interest_rate: float) -> float:
-    monthly_rate = annual_interest_rate / 12.0
-    if monthly_rate <= 0:
-        return float(amount / tenure_months)
-    factor = (1.0 + monthly_rate) ** tenure_months
-    return float(amount * monthly_rate * factor / (factor - 1.0))
 
 
 def scenario_stress_probability(

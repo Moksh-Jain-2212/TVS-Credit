@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { FormEvent, Suspense, useState } from "react";
+import { FormEvent, Suspense, useEffect, useState } from "react";
 import { resendOtp, verifyOtp } from "@/lib/api";
 
 function VerifyOtpForm() {
@@ -13,6 +13,13 @@ function VerifyOtpForm() {
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
+  const [cooldown, setCooldown] = useState(30);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = window.setTimeout(() => setCooldown((value) => value - 1), 1000);
+    return () => window.clearTimeout(timer);
+  }, [cooldown]);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -38,6 +45,7 @@ function VerifyOtpForm() {
       await resendOtp(email);
       setSuccess("A new verification code has been sent to your email.");
       setOtp("");
+      setCooldown(30);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Unable to resend OTP");
     } finally {
@@ -51,22 +59,25 @@ function VerifyOtpForm() {
 
   return (
     <form className="auth-panel" onSubmit={submit}>
-      <p className="text-sm font-bold text-[color:var(--accent)]">TVS NADI</p>
-      <h1 className="mt-2 text-3xl font-black">Verify your email</h1>
+      <p className="page-kicker">TVS NADI</p>
+      <h1 className="page-title">Verify your email</h1>
       <p className="mt-4 text-sm leading-6 text-[color:var(--muted)]">
         We&apos;ve sent a 6-digit verification code to <span className="font-bold text-[color:var(--foreground)]">{email || "your email"}</span>. Enter the code below.
       </p>
       <div className="mt-6 grid gap-4">
         <label><span className="label">Email</span><input className="field" value={email} onChange={(event) => setEmail(event.target.value)} /></label>
-        <label><span className="label">Verification Code</span><input className="field text-center text-2xl font-black tracking-[0.25em]" inputMode="numeric" maxLength={6} value={otp} onChange={(event) => updateOtp(event.target.value)} /></label>
+        <label>
+          <span className="label">Verification Code</span>
+          <input className="field otp-input" autoComplete="one-time-code" inputMode="numeric" maxLength={6} value={otp} onChange={(event) => updateOtp(event.target.value)} autoFocus placeholder="000000" />
+        </label>
       </div>
-      {error ? <div className="mt-4 border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div> : null}
-      {success ? <div className="mt-4 border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">{success}</div> : null}
+      {error ? <div className="notice mt-4 border-red-200 bg-red-50 text-red-700">{error}</div> : null}
+      {success ? <div className="notice mt-4 border-emerald-200 bg-emerald-50 text-emerald-800">{success}</div> : null}
       <button className="btn-primary mt-6 w-full" disabled={loading || otp.length !== 6} type="submit">{loading ? "Verifying" : "Verify Email"}</button>
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3 text-sm">
         <span className="text-[color:var(--muted)]">Didn&apos;t receive the code?</span>
-        <button className="btn-secondary" disabled={resending || !email} type="button" onClick={resend}>
-          {resending ? "Resending" : "Resend OTP"}
+        <button className="btn-secondary" disabled={resending || !email || cooldown > 0} type="button" onClick={resend}>
+          {resending ? "Resending" : cooldown > 0 ? `Resend in ${cooldown}s` : "Resend OTP"}
         </button>
       </div>
     </form>

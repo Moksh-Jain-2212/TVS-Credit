@@ -22,6 +22,15 @@ class RegisterRequest(EmailRequestMixin):
     phone: str | None = Field(default=None, max_length=32)
     password: str = Field(min_length=8, max_length=128)
 
+    @field_validator("password")
+    @classmethod
+    def validate_password_strength(cls, value: str) -> str:
+        has_letter = any(character.isalpha() for character in value)
+        has_digit = any(character.isdigit() for character in value)
+        if not has_letter or not has_digit:
+            raise ValueError("password must include at least one letter and one number")
+        return value
+
 
 class OtpVerifyRequest(EmailRequestMixin):
     otp: str = Field(pattern=r"^\d{6}$")

@@ -57,6 +57,9 @@ def test_alternative_data_submission_without_pkdd_and_grok_fallback(platform_cli
     assert underwriting["risk_probability"] is not None
     assert underwriting["behavioral_risk"]["base_model_risk_probability"] is None
     assert underwriting["behavioral_risk"]["behavioral_risk_score"] is not None
+    assert underwriting["behavioral_risk"]["behavioral_probability_calibration_status"] == "POLICY_HEURISTIC"
+    assert underwriting["feature_schema_version"] == "live-alternative-feature-schema-v1"
+    assert underwriting["underwriting_engine_version"] == "live-underwriting-v2"
     assert underwriting["nadi_decision_state"] in {
         "APPROVE",
         "SAFE_TO_LEARN",
@@ -71,6 +74,7 @@ def test_alternative_data_submission_without_pkdd_and_grok_fallback(platform_cli
     assert body["alternative_data"]["readiness"]["connected_source_count"] == 1
     assert body["risk"]["historical_model_probability"] is None
     assert body["risk"]["combined_probability"] == underwriting["risk_probability"]
+    assert body["behavioral_risk"]["calibration_status"] == "POLICY_HEURISTIC"
 
     grok = client.post(f"/admin/applications/{application_id}/grok-explanation", headers=admin_headers)
     assert grok.status_code == 200

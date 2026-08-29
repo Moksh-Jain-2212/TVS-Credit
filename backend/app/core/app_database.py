@@ -10,7 +10,7 @@ from pathlib import Path
 from collections.abc import Generator
 
 from sqlalchemy.exc import DatabaseError
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
@@ -76,7 +76,39 @@ def ensure_app_database(db_path: Path | None = None, *, recover_malformed: bool 
         reset_app_engine_cache()
     engine = create_app_sqlite_engine(target_path)
     AppBase.metadata.create_all(bind=engine)
+    ensure_sqlite_app_schema_columns(engine)
     return quarantined_path
+
+
+def ensure_sqlite_app_schema_columns(engine: Engine) -> None:
+    """Small local-development bridge until Alembic migrations are applied."""
+    inspector = inspect(engine)
+    existing_tables = set(inspector.get_table_names())
+    additions = {
+        "underwriting_results": {
+            "model_version": "VARCHAR(128)",
+            "feature_schema_version": "VARCHAR(128)",
+            "underwriting_engine_version": "VARCHAR(64)",
+            "evidence_mode": "VARCHAR(64)",
+            "governance_metadata_json": "JSON",
+        },
+        "admin_decisions": {
+            "override_metadata_json": "JSON",
+            "second_review_required": "BOOLEAN NOT NULL DEFAULT 0",
+        },
+        "behavioral_risk_assessments": {
+            "behavioral_score_band": "VARCHAR(64)",
+            "behavioral_probability_calibration_status": "VARCHAR(64) NOT NULL DEFAULT 'POLICY_HEURISTIC'",
+        },
+    }
+    with engine.begin() as connection:
+        for table, columns in additions.items():
+            if table not in existing_tables:
+                continue
+            existing_columns = {column["name"] for column in inspector.get_columns(table)}
+            for column, ddl in columns.items():
+                if column not in existing_columns:
+                    connection.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}"))
 
 
 def app_database_path() -> Path:

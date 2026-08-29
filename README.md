@@ -1,73 +1,150 @@
 # TVS NADI - Adaptive Credit Path Engine
 
-NADI is a hackathon MVP for alternative-data underwriting of new-to-credit and thin-file borrowers. It separates repayment risk, financial capacity, and evidence confidence so missing credit history is not treated as automatic high risk.
+TVS NADI is a production-oriented underwriting prototype for new-to-credit and thin-file borrowers. Its core principle is simple: missing credit history is uncertainty, not automatically high risk.
 
-## Repository Layout
+NADI separates:
+
+- repayment risk
+- financial capacity
+- evidence confidence
+
+The decision engine keeps four states:
+
+- `APPROVE`
+- `SAFE_TO_LEARN`
+- `EVIDENCE_NEEDED`
+- `NOT_CURRENTLY_AFFORDABLE`
+
+`SAFE_TO_LEARN` is the starter-credit path: when the full request is not safely supportable, NADI can recommend a smaller exposure that may grow with successful repayment behavior.
+
+## Architecture
 
 ```text
-backend/      FastAPI backend, tests, and Python dependencies
-frontend/     Next.js borrower and admin interface
-data/         Raw and processed local data artifacts
-models/       Future trained model artifacts
-scripts/      Utility scripts for data and environment workflows
-docs/         Project documentation
+backend/      FastAPI, SQLAlchemy, SQLite, underwriting services, tests
+frontend/     Next.js borrower and admin portals
+data/         Local raw/processed artifacts, ignored where sensitive
+models/       Trained model artifacts
+scripts/      Reproducible bootstrap, data, model, and policy scripts
+docs/         Architecture, security, governance, and evaluation notes
 ```
 
-## Backend Setup
+See:
 
-Use Python 3.11 or newer.
+- `docs/architecture.md`
+- `docs/underwriting_pipeline.md`
+- `docs/security.md`
+- `docs/model_governance.md`
+- `docs/policy_evaluation.md`
+
+## Local Setup
+
+Use Python 3.11+ and Node 22+.
 
 ```bash
 cd backend
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-PYTHONPATH=. pytest
-uvicorn app.main:app --reload
+cd ..
+npm --prefix frontend install
+make bootstrap
 ```
 
-The backend exposes a basic health check at:
+Run the app:
+
+```bash
+cd backend
+.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+```bash
+cd frontend
+npm run dev
+```
+
+URLs:
+
+- Backend: `http://127.0.0.1:8000`
+- Frontend: `http://127.0.0.1:3000`
+- Health: `GET /health`
+- Readiness: `GET /ready`
+
+## Demo Bootstrap
+
+`make bootstrap` runs `scripts/bootstrap_demo.py`.
+
+It initializes databases, detects local PKDD raw files, prepares/imports data, generates features, trains the historical model, scores confidence, forecasts cash flow, runs stress tests, builds repayment envelopes, creates NADI decisions, prepares explainability, writes policy evaluation docs, and creates a demo admin if configured.
+
+If raw PKDD files are unavailable, the bootstrap creates a small deterministic fixture so tests and CI can still run without distributing raw data.
+
+Default demo admin:
 
 ```text
-GET /health
+admin@example.com
+admin-pass-1
 ```
 
-## Platform Underwriting
-
-Borrowers can submit with either PKDD demo bank evidence or at least one consented alternative-data source. Supported alternative sources are GST/business, UPI, telecom recharge, utility bills, e-commerce settlements, and mobility/vehicle activity. Current connectors are local mock/manual adapters that normalize aggregate signals only; raw external payloads, raw counterparties, exact GPS, call logs, SMS, contacts, and protected traits are not persisted in underwriting views.
-
-NADI keeps historical model risk separate from behavioral risk. `risk_probability` is the current combined risk used by the decision engine. Admin responses also expose `historical_model_risk_probability`, `behavioral_risk_probability`, behavioral data coverage, confidence, source component scores, and factor contributions.
-
-Evidence confidence and the evidence ladder now account for alternative-data coverage. Missing alternative sources are treated as missing evidence, not adverse behavior.
-
-## Email OTP Setup
-
-TVS NADI supports real OTP delivery through backend-only SMTP settings. For Gmail SMTP, use environment variables like:
+Override with:
 
 ```text
-OTP_DELIVERY_MODE=SMTP_EMAIL
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USERNAME=<gmail-address>
-SMTP_PASSWORD=<google-app-password>
-SMTP_FROM_EMAIL=<gmail-address>
-SMTP_FROM_NAME=TVS NADI
-SMTP_USE_TLS=true
+BOOTSTRAP_ADMIN_EMAIL=
+BOOTSTRAP_ADMIN_PASSWORD=
+BOOTSTRAP_CREATE_ADMIN=false
 ```
 
-Gmail commonly requires a Google App Password instead of the normal Google account password. Do not put real SMTP passwords in source control or frontend environment files.
+## Alternative Data
 
-For automated tests or local fallback, set:
+Borrowers can submit with PKDD demo bank evidence or at least one consented alternative-data source:
+
+- GST / business
+- UPI
+- telecom recharge
+- utility bills
+- e-commerce settlements
+- mobility / vehicle activity
+
+NADI stores normalized aggregate signals, not unnecessary raw sensitive data. It does not persist SMS content, call logs, contacts, exact GPS trails, raw UPI counterparties, protected traits, or unrelated shopping preference inference.
+
+Missing alternative sources are treated as missing evidence, not negative behavior.
+
+## ML Model
+
+The historical repayment-risk model is trained by `scripts/train_risk_model.py` and served by `RiskModelService`.
+
+Model serving:
+
+- loads the artifact once
+- validates the feature schema
+- exposes metadata and health
+- records model/schema versions in underwriting results
+- fails loudly on incompatible features
+- gracefully handles a missing artifact
+
+Behavioral risk is separate. Its current probability field is marked `POLICY_HEURISTIC` until calibrated against observed outcomes.
+
+## Underwriting Pipeline
+
+Live underwriting builds a typed context from one of two evidence modes:
+
+- `PKDD_DEMO`
+- `DECLARED_PLUS_ALTERNATIVE_DATA`
+
+Then NADI runs:
 
 ```text
-OTP_DELIVERY_MODE=MOCK_CONSOLE
+Evidence Provider -> Underwriting Context -> Risk + Capacity + Confidence
+-> Stress -> Repayment Envelope -> Decision -> Explanation
 ```
 
-In `SMTP_EMAIL` mode the API never returns the OTP. The user receives it by email and enters it on `/verify-otp`.
+Cash-flow outputs distinguish:
+
+- `HISTORICAL_BANK_FORECAST`
+- `DECLARED_PLUS_ALTERNATIVE_ESTIMATE`
+- `INSUFFICIENT_EVIDENCE`
 
 ## Grok Explainability
 
-Admin users can request an optional structured Grok/xAI explanation for an application. The backend sends a de-identified underwriting payload only and caches responses by input hash. Local runs work without xAI credentials and return a deterministic fallback explanation.
+Grok/xAI is optional and explanation-only. It never makes credit decisions.
 
 ```text
 GROK_EXPLANATION_ENABLED=false
@@ -76,18 +153,47 @@ XAI_MODEL=grok-4.6
 XAI_BASE_URL=https://api.x.ai/v1
 ```
 
-Keep xAI credentials backend-only. Do not place them in `NEXT_PUBLIC_*` variables.
+The backend sends a de-identified underwriting payload and caches responses by input hash. Without credentials, the API returns a deterministic fallback explanation.
 
-## Data
+## Security
 
-Place the raw PKDD `.asc` files under:
+Implemented:
+
+- email normalization and password strength validation
+- PBKDF2 password hashing
+- short-lived access tokens
+- rotating refresh tokens
+- backend logout with refresh-session revocation
+- OTP expiry, retry limits, resend cooldown
+- basic auth route rate limits
+- configurable CORS
+- request IDs and security headers
+- standardized error envelopes
+
+Production guidance:
+
+- use backend-only secrets
+- prefer secure HttpOnly cookies for browser token transport
+- use Redis or another shared store for rate limits
+- run Alembic migrations against a managed database
+- do not log passwords, OTPs, bearer tokens, refresh tokens, or raw financial payloads
+
+## Database
+
+Local development uses SQLite. Production-oriented migration scaffolding is under:
 
 ```text
-data/raw/pkdd/
+backend/alembic.ini
+backend/alembic/
 ```
 
-Raw files are local inputs and should not be committed.
+Use `APP_DATABASE_URL` for managed database URLs or `APP_DATABASE_PATH` for SQLite.
 
-## Current Status
+## Testing
 
-The project includes the FastAPI API, app database persistence, OTP login, borrower application flow, admin review flow, PKDD demo analysis, alternative-data behavioral underwriting, and optional Grok explainability.
+```bash
+make test
+make build
+```
+
+CI runs backend tests and the frontend production build with deterministic settings.

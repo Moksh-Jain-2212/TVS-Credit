@@ -152,8 +152,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   });
 
   if (!response.ok) {
-    const body = await response.text();
-    throw new Error(body || `Request failed with ${response.status}`);
+    throw new Error(await errorMessage(response));
   }
 
   return response.json() as Promise<T>;
@@ -170,11 +169,29 @@ export async function platformRequest<T>(path: string, init?: RequestInit, token
   });
 
   if (!response.ok) {
-    const body = await response.text();
-    throw new Error(body || `Request failed with ${response.status}`);
+    throw new Error(await errorMessage(response));
   }
 
   return response.json() as Promise<T>;
+}
+
+async function errorMessage(response: Response): Promise<string> {
+  const body = await response.text();
+  if (!body) {
+    return `Request failed with ${response.status}`;
+  }
+  try {
+    const parsed = JSON.parse(body) as { detail?: unknown; error?: { message?: string } };
+    if (typeof parsed.error?.message === "string") {
+      return parsed.error.message;
+    }
+    if (typeof parsed.detail === "string") {
+      return parsed.detail;
+    }
+    return JSON.stringify(parsed.detail ?? parsed);
+  } catch {
+    return body;
+  }
 }
 
 export type AuthUser = {
@@ -297,6 +314,7 @@ export type AdminApplicationRow = {
   confidence_band: string | null;
   confidence_score: number | null;
   nadi_recommendation: string | null;
+  recommended_amount?: number | null;
   application_status: string;
   final_admin_decision: string | null;
 };
@@ -383,7 +401,9 @@ export type AdminApplicationDetail = {
   };
   behavioral_risk: {
     score: number | null;
+    score_band?: string | null;
     probability: number | null;
+    calibration_status?: string | null;
     coverage: number | null;
     assessment_confidence: number | null;
     source_coverage: Array<Record<string, unknown>>;
@@ -456,6 +476,13 @@ export function refreshToken(refresh_token: string): Promise<TokenResponse> {
     method: "POST",
     body: JSON.stringify({ refresh_token }),
   });
+}
+
+export function logoutSession(refresh_token: string | null, token: string | null): Promise<{ status: string }> {
+  return platformRequest<{ status: string }>("/auth/logout", {
+    method: "POST",
+    body: JSON.stringify({ refresh_token }),
+  }, token);
 }
 
 export function getMe(token: string): Promise<AuthUser> {
@@ -544,8 +571,17 @@ export function getAdminDashboard(token: string): Promise<{ counts: Record<strin
   return platformRequest<{ counts: Record<string, number>; recent_applications: AdminApplicationRow[] }>("/admin/dashboard", undefined, token);
 }
 
-export function listAdminApplications(token: string): Promise<AdminApplicationRow[]> {
-  return platformRequest<AdminApplicationRow[]>("/admin/applications", undefined, token);
+export function listAdminApplications(
+  token: string,
+  params?: { status?: string; nadi_decision?: string; risk_band?: string; confidence_band?: string; limit?: number; offset?: number },
+): Promise<AdminApplicationRow[]> {
+  const search = new URLSearchParams();
+  Object.entries(params ?? {}).forEach(([key, value]) => {
+    if (value !== undefined && value !== "") {
+      search.set(key, String(value));
+    }
+  });
+  return platformRequest<AdminApplicationRow[]>(`/admin/applications${search.size ? `?${search.toString()}` : ""}`, undefined, token);
 }
 
 export function getAdminApplication(id: number, token: string): Promise<AdminApplicationDetail> {

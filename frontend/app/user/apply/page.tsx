@@ -176,12 +176,17 @@ export default function ApplyPage() {
     <ProtectedRoute role="USER">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-sm font-bold text-[color:var(--accent)]">Loan Application</p>
-          <h1 className="text-3xl font-black">Apply for Loan</h1>
+          <p className="page-kicker">Loan Application</p>
+          <h1 className="page-title">Apply for Loan</h1>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {steps.map((label, index) => <span className={`badge ${index === step ? "badge-good" : "badge-neutral"}`} key={label}>{label}</span>)}
-        </div>
+      </div>
+      <div className="stepper mt-6">
+        {steps.map((label, index) => (
+          <div className={`step-item ${index === step ? "step-item-active" : index < step ? "step-item-complete" : ""}`} key={label}>
+            <span className="step-dot">{index + 1}</span>
+            <span className="text-sm font-bold">{label}</span>
+          </div>
+        ))}
       </div>
       <form className="mt-6 section-panel" onSubmit={submit}>
         {step === 0 ? (
@@ -237,7 +242,7 @@ export default function ApplyPage() {
                 </div>
               ))}
             </div>
-            <div className="empty-state">
+            <div className="notice bg-[color:var(--panel-muted)] text-[color:var(--muted)]">
               {alternativeData?.readiness.message ?? "Save the application details to load evidence sources."}
               {alternativeData?.readiness.ready ? ` Coverage ${Math.round(alternativeData.readiness.behavioral_data_coverage * 100)}%, confidence ${Math.round(alternativeData.readiness.behavioral_assessment_confidence)}.` : ""}
             </div>
@@ -258,8 +263,8 @@ export default function ApplyPage() {
             <p className="mt-2 text-sm text-[color:var(--muted)]">NADI underwriting will run against connected evidence and keep behavioral risk separate from historical model risk.</p>
           </div>
         ) : null}
-        {message ? <div className="mt-4 border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">{message}</div> : null}
-        {error ? <div className="mt-4 border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div> : null}
+        {message ? <div className="notice mt-4 border-emerald-200 bg-emerald-50 text-emerald-800">{message}</div> : null}
+        {error ? <div className="notice mt-4 border-red-200 bg-red-50 text-red-700">{error}</div> : null}
         <div className="mt-6 flex flex-wrap justify-between gap-3">
           <button className="btn-secondary" disabled={loading || step === 0} type="button" onClick={() => setStep((value) => Math.max(0, value - 1))}>Back</button>
           {step < 3 ? <button className="btn-primary" disabled={loading} type="button" onClick={next}>Next</button> : null}

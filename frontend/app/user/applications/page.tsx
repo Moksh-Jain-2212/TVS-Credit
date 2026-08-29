@@ -19,7 +19,10 @@ export default function UserApplicationsPage() {
   return (
     <ProtectedRoute role="USER">
       <div className="flex items-center justify-between gap-4">
-        <h1 className="text-3xl font-black">Applications</h1>
+        <div>
+          <p className="page-kicker">Borrower Workspace</p>
+          <h1 className="page-title">Applications</h1>
+        </div>
         <Link href="/user/apply" className="btn-primary">New Application</Link>
       </div>
       <div className="mt-6 grid gap-3">

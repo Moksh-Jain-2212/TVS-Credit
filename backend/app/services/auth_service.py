@@ -135,6 +135,7 @@ def create_token_pair(session: Session, user: User) -> dict:
     return {
         "access_token": access_token,
         "refresh_token": refresh_token,
+        "token_type": "bearer",
         "expires_in": access_token_minutes() * 60,
         "user": serialize_user(user),
     }

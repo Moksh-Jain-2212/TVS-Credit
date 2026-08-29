@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import type { PlatformApplication, PlatformTransaction, RepaymentCandidate } from "@/lib/api";
@@ -24,6 +24,19 @@ export function formatPercent(value: number | null | undefined): string {
   return `${Math.round(value * 100)}%`;
 }
 
+export function LoadingState({ label = "Loading" }: { label?: string }) {
+  return <div className="skeleton grid place-items-center text-sm font-bold text-[color:var(--muted)]">{label}</div>;
+}
+
+export function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
+  return (
+    <div className="empty-state flex flex-wrap items-center justify-between gap-3 border-red-200 bg-red-50 text-red-800">
+      <span>{message}</span>
+      {onRetry ? <button className="btn-secondary" type="button" onClick={onRetry}>Retry</button> : null}
+    </div>
+  );
+}
+
 export function StatusBadge({ status }: { status: string | null | undefined }) {
   const value = status ?? "UNKNOWN";
   const tone = value === "APPROVED" ? "good" : value === "REJECTED" ? "bad" : value === "MORE_INFORMATION_REQUIRED" ? "warn" : "neutral";
@@ -32,7 +45,8 @@ export function StatusBadge({ status }: { status: string | null | undefined }) {
 
 export function RiskBadge({ value, band }: { value?: number | null; band?: string | null }) {
   const tone = band === "low" ? "good" : band === "high" ? "bad" : "warn";
-  return <span className={`badge badge-${tone}`}>{band ?? "risk unavailable"} {value !== undefined ? formatPercent(value) : ""}</span>;
+  const label = band ? `${band[0].toUpperCase()}${band.slice(1)}` : "Risk unavailable";
+  return <span className={`badge badge-${tone}`}>{label} {value !== undefined ? formatPercent(value) : ""}</span>;
 }
 
 export function ConfidenceGauge({ score, band }: { score: number | null | undefined; band?: string | null }) {
@@ -62,29 +76,71 @@ export function Metric({ label, value }: { label: string; value: string }) {
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const base = user?.role === "ADMIN" ? "/admin/dashboard" : "/user/dashboard";
+  const links = user?.role === "ADMIN"
+    ? [
+        ["Dashboard", "/admin/dashboard"],
+        ["Applications", "/admin/applications"],
+        ["Review Queue", "/admin/applications?status=ADMIN_REVIEW"],
+        ["System / Model Info", "/demo"],
+      ]
+    : [
+        ["Dashboard", "/user/dashboard"],
+        ["Applications", "/user/applications"],
+        ["Apply", "/user/apply"],
+      ];
+  if (user?.role === "ADMIN") {
+    return (
+      <div className="app-frame app-frame-admin">
+        <aside className="sidebar hidden min-h-screen p-5 lg:block">
+          <Link href={base} className="text-xl font-black">TVS NADI</Link>
+          <div className="mt-2 text-xs font-bold uppercase text-slate-400">Underwriting OS</div>
+          <nav className="mt-8 grid gap-2 text-sm">
+            {links.map(([label, href]) => {
+              const hrefPath = href.split("?")[0];
+              const active = pathname === hrefPath || (hrefPath !== base && pathname.startsWith(hrefPath));
+              return <Link className={`nav-link justify-start ${active ? "nav-link-active" : ""}`} href={href} key={href}>{label}</Link>;
+            })}
+          </nav>
+        </aside>
+        <div>
+          <header className="topbar sticky top-0 z-20">
+            <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+              <div>
+                <div className="text-xs font-bold uppercase text-[color:var(--muted)]">Production Prototype</div>
+                <div className="font-black leading-tight">{user.name}</div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="badge badge-info">Local</span>
+                <button className="btn-secondary" type="button" onClick={() => { logout(); router.push("/login"); }}>Logout</button>
+              </div>
+              <nav className="flex w-full gap-2 overflow-x-auto pb-1 text-sm lg:hidden">
+                {links.map(([label, href]) => {
+                  const hrefPath = href.split("?")[0];
+                  const active = pathname === hrefPath || (hrefPath !== base && pathname.startsWith(hrefPath));
+                  return <Link className={`btn-secondary min-w-max ${active ? "border-[color:var(--accent)] text-[color:var(--accent)]" : ""}`} href={href} key={href}>{label}</Link>;
+                })}
+              </nav>
+            </div>
+          </header>
+          <main className="mx-auto max-w-7xl px-4 py-5 sm:px-5 lg:py-6">{children}</main>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-20 border-b border-[color:var(--line)] bg-white">
+      <header className="sticky top-0 z-20 bg-[color:var(--ink)] text-white">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-5 py-4">
-          <Link href={base} className="text-lg font-black tracking-[0]">TVS NADI</Link>
+          <Link href={base} className="text-lg font-black">TVS NADI</Link>
           <nav className="flex flex-wrap items-center gap-2 text-sm">
-            {user?.role === "USER" ? (
-              <>
-                <Link className="nav-link" href="/user/dashboard">Dashboard</Link>
-                <Link className="nav-link" href="/user/applications">Applications</Link>
-                <Link className="nav-link" href="/user/apply">Apply</Link>
-              </>
-            ) : null}
-            {user?.role === "ADMIN" ? (
-              <>
-                <Link className="nav-link" href="/admin/dashboard">Dashboard</Link>
-                <Link className="nav-link" href="/admin/applications">Applications</Link>
-                <Link className="nav-link" href="/demo">Demo</Link>
-              </>
-            ) : null}
+            {links.map(([label, href]) => {
+              const active = pathname === href || pathname.startsWith(href);
+              return <Link className={`nav-link ${active ? "nav-link-active" : ""}`} href={href} key={href}>{label}</Link>;
+            })}
             <button
-              className="btn-secondary"
+              className="btn-secondary border-white/20 bg-white/10 text-white hover:bg-white/15"
               type="button"
               onClick={() => {
                 logout();
@@ -96,7 +152,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </nav>
         </div>
       </header>
-      <main className="mx-auto max-w-7xl px-5 py-6">{children}</main>
+      <main className="mx-auto max-w-7xl px-4 py-5 sm:px-5 lg:py-6">{children}</main>
     </div>
   );
 }

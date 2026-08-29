@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
 import json
 from pathlib import Path
 from typing import Any
@@ -27,6 +28,8 @@ from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 TARGET_COLUMN = "repayment_default_target"
 KNOWN_OUTCOME_COLUMN = "repayment_outcome_known"
+MODEL_VERSION = "historical-risk-v1"
+FEATURE_SCHEMA_VERSION = "nadi-feature-schema-v1"
 
 LEAKAGE_COLUMNS = {
     "loan_status_target",
@@ -251,6 +254,9 @@ def train_risk_model(
     joblib.dump(
         {
             "model_name": selected_model_name,
+            "model_version": MODEL_VERSION,
+            "feature_schema_version": FEATURE_SCHEMA_VERSION,
+            "trained_at": datetime.now(timezone.utc).isoformat(),
             "model": selected_model,
             "feature_columns": columns,
             "target_column": TARGET_COLUMN,
@@ -268,6 +274,8 @@ def train_risk_model(
     }
     result = {
         "selected_model": selected_model_name,
+        "model_version": MODEL_VERSION,
+        "feature_schema_version": FEATURE_SCHEMA_VERSION,
         "model_path": str(model_path),
         "split_summary": split_summary,
         "metrics": metrics,

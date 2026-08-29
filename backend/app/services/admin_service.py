@@ -13,6 +13,7 @@ from sqlalchemy import desc, select
 from sqlalchemy.orm import Session
 
 from app.core.database import create_session_factory, create_sqlite_engine
+from app.core.security import utc_now
 from app.models import (
     AdminDecision,
     AdminDecisionState,
@@ -37,6 +38,8 @@ from app.services.application_service import (
 from app.services.behavioral_risk import latest_behavioral_assessment
 from app.services.grok_explainability import generate_explanation, latest_explanation, serialize_ai_explanation
 from app.services.live_underwriting import analyze_platform_application
+from app.services.finance import estimate_emi
+from app.services.repayment_envelope import load_envelope_policy
 
 
 def enum_value(value: Any) -> Any:
@@ -78,6 +81,34 @@ def risk_band(risk_probability: float | None) -> str | None:
     return "high"
 
 
+def is_admin_override(request: AdminDecisionRequest, application: LoanApplication, result: Any) -> bool:
+    nadi_state = enum_value(result.nadi_decision_state)
+    requested_approval = request.decision == AdminDecisionState.APPROVE_REQUESTED
+    rejected_positive_recommendation = request.decision == AdminDecisionState.REJECT and nadi_state in {"APPROVE", "SAFE_TO_LEARN"}
+    approved_amount = decimal_or_none(request.approved_amount) or decimal_or_none(application.requested_amount) or 0
+    safe_exposure = decimal_or_none(result.maximum_safe_exposure) or 0
+    return bool(
+        (requested_approval and nadi_state != "APPROVE")
+        or rejected_positive_recommendation
+        or (request.decision in {AdminDecisionState.APPROVE_REQUESTED, AdminDecisionState.APPROVE_RECOMMENDED} and approved_amount > safe_exposure)
+    )
+
+
+def override_metadata(admin: User, request: AdminDecisionRequest, application: LoanApplication, result: Any, approved_amount: Decimal | None) -> dict[str, Any]:
+    override = is_admin_override(request, application, result)
+    return {
+        "nadi_decision": enum_value(result.nadi_decision_state),
+        "nadi_recommended_amount": decimal_or_none(result.recommended_amount),
+        "maximum_safe_exposure": decimal_or_none(result.maximum_safe_exposure),
+        "admin_decision": enum_value(request.decision),
+        "admin_approved_amount": decimal_or_none(approved_amount),
+        "override": override,
+        "override_reason": request.remarks if override else None,
+        "actor": {"id": admin.id, "email": admin.email},
+        "timestamp": utc_now().isoformat(),
+    }
+
+
 def latest_result_query(session: Session, application_id: int):
     return session.scalar(
         select(AdminDecision)
@@ -110,6 +141,7 @@ def list_applications(
     risk: str | None = None,
     confidence: str | None = None,
     limit: int = 100,
+    offset: int = 0,
 ) -> list[dict]:
     applications = session.scalars(select(LoanApplication).order_by(desc(LoanApplication.created_at))).all()
     rows: list[dict] = []
@@ -155,11 +187,12 @@ def list_applications(
                 "confidence_band": result.confidence_band if result else None,
                 "confidence_score": decimal_or_none(result.confidence_score) if result else None,
                 "nadi_recommendation": enum_value(result.nadi_decision_state) if result else None,
+                "recommended_amount": decimal_or_none(result.recommended_amount) if result else None,
                 "application_status": enum_value(application.status),
                 "final_admin_decision": enum_value(decision.decision) if decision else None,
             }
         )
-    return rows[:limit]
+    return rows[offset : offset + limit]
 
 
 def get_admin_application(session: Session, application_id: int) -> LoanApplication:
@@ -302,7 +335,9 @@ def application_detail(session: Session, application_id: int) -> dict:
         },
         "behavioral_risk": {
             "score": decimal_or_none(behavioral.behavioral_risk_score) if behavioral else None,
+            "score_band": behavioral.behavioral_score_band if behavioral else None,
             "probability": decimal_or_none(behavioral.behavioral_risk_probability) if behavioral else None,
+            "calibration_status": behavioral.behavioral_probability_calibration_status if behavioral else None,
             "coverage": decimal_or_none(behavioral.behavioral_data_coverage) if behavioral else None,
             "assessment_confidence": decimal_or_none(behavioral.behavioral_assessment_confidence) if behavioral else None,
             "source_coverage": behavioral.source_coverage_json if behavioral else [],
@@ -371,11 +406,32 @@ def create_admin_decision(
     if request.decision == AdminDecisionState.APPROVE_RECOMMENDED:
         approved_amount = Decimal(str(result.recommended_amount or 0))
         approved_tenure = result.recommended_tenure
-        approved_emi = Decimal(str(result.recommended_emi or 0)) if result.recommended_emi is not None else None
     if request.decision == AdminDecisionState.APPROVE_REQUESTED:
         approved_amount = approved_amount or application.requested_amount
         approved_tenure = approved_tenure or application.requested_tenure
-        approved_emi = approved_emi or application.existing_monthly_emi
+    if request.decision == AdminDecisionState.APPROVE_REQUESTED and (approved_amount is None or approved_tenure is None):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Approved amount and tenure are required")
+    if (
+        request.decision in {AdminDecisionState.APPROVE_REQUESTED, AdminDecisionState.APPROVE_RECOMMENDED}
+        and approved_amount is not None
+        and approved_tenure is not None
+        and float(approved_amount) > 0
+    ):
+        approved_emi = Decimal(
+            str(
+                round(
+                    estimate_emi(float(approved_amount), int(approved_tenure), load_envelope_policy().annual_interest_rate),
+                    2,
+                )
+            )
+        )
+    is_override = is_admin_override(request, application, result)
+    if is_override and not (request.remarks or "").strip():
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Override reason is required when final decision materially differs from NADI.",
+        )
+    metadata = override_metadata(admin, request, application, result, approved_amount)
 
     decision = AdminDecision(
         application=application,
@@ -385,6 +441,8 @@ def create_admin_decision(
         approved_tenure=approved_tenure,
         approved_emi=approved_emi,
         remarks=request.remarks,
+        override_metadata_json=metadata,
+        second_review_required=bool(is_override and (decimal_or_none(result.risk_probability) or 0) > 0.55),
     )
     status_map = {
         AdminDecisionState.APPROVE_REQUESTED: ApplicationStatus.APPROVED,
@@ -403,6 +461,8 @@ def create_admin_decision(
             metadata_json={
                 "nadi_decision": enum_value(result.nadi_decision_state),
                 "admin_decision": enum_value(request.decision),
+                "override": is_override,
+                "override_reason": request.remarks if is_override else None,
             },
         )
     )

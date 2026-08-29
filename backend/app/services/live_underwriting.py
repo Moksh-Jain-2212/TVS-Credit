@@ -5,12 +5,9 @@ from __future__ import annotations
 import json
 from datetime import datetime
 from decimal import Decimal
-from pathlib import Path
 from typing import Any
 
-import joblib
 import pandas as pd
-from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.security import utc_now
@@ -23,11 +20,19 @@ from app.services.evidence_confidence import load_policy as load_evidence_confid
 from app.services.evidence_confidence import score_evidence_confidence
 from app.services.evidence_ladder import load_evidence_ladder_policy, rank_evidence_options
 from app.services.explainability import build_explanations
-from app.services.repayment_envelope import estimate_emi, generate_repayment_envelope, load_envelope_policy
+from app.services.finance import estimate_emi
+from app.services.live_cash_flow import LiveCashFlowInputs, estimate_live_cash_flow
+from app.services.repayment_envelope import generate_repayment_envelope, load_envelope_policy
+from app.services.risk_model_service import RiskModelPrediction, risk_model_service
 from app.services.stress_simulator import load_stress_policy, simulate_borrower_stress
 
 
-MODEL_PATH = Path(__file__).resolve().parents[3] / "models" / "repayment_risk_model.joblib"
+UNDERWRITING_ENGINE_VERSION = "live-underwriting-v2"
+DECISION_POLICY_VERSION = "decision-policy-v1"
+EVIDENCE_CONFIDENCE_POLICY_VERSION = "evidence-confidence-v1"
+EVIDENCE_LADDER_POLICY_VERSION = "evidence-ladder-v2"
+STRESS_POLICY_VERSION = "stress-policy-v1"
+REPAYMENT_ENVELOPE_POLICY_VERSION = "repayment-envelope-v1"
 
 
 def clean(value: Any) -> Any:
@@ -56,17 +61,6 @@ def jsonable(value: Any) -> Any:
     if isinstance(value, (str, int, float, bool)):
         return value
     return str(value)
-
-
-def load_model_prediction(row: pd.Series) -> float | None:
-    if not MODEL_PATH.exists():
-        return None
-    artifact = joblib.load(MODEL_PATH)
-    model = artifact["model"]
-    columns = artifact["feature_columns"]
-    frame = pd.DataFrame([{column: row.get(column) for column in columns}])
-    probability = model.predict_proba(frame)[:, 1][0]
-    return float(probability)
 
 
 def numeric(values: list[Any]) -> list[float]:
@@ -147,9 +141,16 @@ def build_declared_row(application: LoanApplication, session: Session) -> pd.Ser
         anomaly_flags.append("observed net cash flow is not positive")
 
     latest_buffer = max(0.0, mean_net * 1.5 + mean_inflow * 0.35)
-    forecast_p50 = mean_net
-    forecast_p10 = forecast_p50 - max(mean_outflow * 0.2, abs(forecast_p50) * (1.0 - stability))
-    forecast_p90 = forecast_p50 + max(mean_inflow * 0.15, abs(forecast_p50) * stability * 0.5)
+    forecast = estimate_live_cash_flow(
+        LiveCashFlowInputs(
+            monthly_inflow=mean_inflow,
+            monthly_outflow=mean_outflow,
+            monthly_net_cash_flow=mean_net,
+            stability=stability,
+            history_months=history_months,
+            evidence_mode="DECLARED_PLUS_ALTERNATIVE_DATA",
+        )
+    )
     row = pd.Series(
         {
             "loan_id": application.id,
@@ -175,12 +176,14 @@ def build_declared_row(application: LoanApplication, session: Session) -> pd.Ser
             "stability_history_status": "sufficient_history" if history_months >= 3 else "insufficient_history",
             "seasonality_status": "insufficient_history",
             "standing_order_count": 1 if existing_emi > 0 else 0,
-            "cash_flow_forecast_status": "behavioral_forecast_available",
-            "cash_flow_forecast_method": "declared_plus_alternative_data",
+            "cash_flow_forecast_status": "estimate_available" if forecast.p50 is not None else "insufficient_evidence",
+            "cash_flow_forecast_method": forecast.method,
             "cash_flow_forecast_history_months": history_months,
-            "cash_flow_forecast_p10": forecast_p10,
-            "cash_flow_forecast_p50": forecast_p50,
-            "cash_flow_forecast_p90": forecast_p90,
+            "cash_flow_forecast_p10": forecast.p10,
+            "cash_flow_forecast_p50": forecast.p50,
+            "cash_flow_forecast_p90": forecast.p90,
+            "cash_flow_forecast_confidence": forecast.confidence,
+            "cash_flow_forecast_limitations": forecast.limitations,
             "alternative_data_sources": source_labels,
             "alternative_data_anomaly_flags": anomaly_flags,
         }
@@ -199,6 +202,7 @@ def build_live_row(application: LoanApplication, session: Session) -> pd.Series:
         row["duration_months"] = requested_tenure
         row["scheduled_payment"] = scheduled_payment
         row["live_evidence_mode"] = "PKDD_DEMO"
+        row["cash_flow_forecast_method"] = "HISTORICAL_BANK_FORECAST"
         return row
     row = build_declared_row(application, session)
     row["live_evidence_mode"] = "DECLARED_PLUS_ALTERNATIVE_DATA"
@@ -210,9 +214,12 @@ def analyze_platform_application(session: Session, application: LoanApplication,
     session.flush()
 
     row = build_live_row(application, session)
-    base_model_risk_probability = load_model_prediction(row) if row.get("live_evidence_mode") == "PKDD_DEMO" else None
-    if base_model_risk_probability is not None:
-        row["historical_model_risk_probability"] = base_model_risk_probability
+    model_prediction: RiskModelPrediction | None = None
+    if row.get("live_evidence_mode") == "PKDD_DEMO":
+        model_prediction = risk_model_service.predict(row)
+    base_model_risk_probability = model_prediction.probability if model_prediction else None
+    if model_prediction is not None:
+        row["historical_model_risk_probability"] = model_prediction.probability
     behavioral_assessment, behavioral_context = assess_behavioral_risk(
         session,
         application,
@@ -288,6 +295,27 @@ def analyze_platform_application(session: Session, application: LoanApplication,
         loan_officer_explanation_json=jsonable(explanations["loan_officer"]),
         borrower_explanation_json=jsonable(explanations["borrower"]),
         repayment_envelope_json=jsonable(envelope),
+        model_version=model_prediction.model_version if model_prediction else None,
+        feature_schema_version=model_prediction.feature_schema_version if model_prediction else "live-alternative-feature-schema-v1",
+        underwriting_engine_version=UNDERWRITING_ENGINE_VERSION,
+        evidence_mode=clean(row.get("live_evidence_mode")),
+        governance_metadata_json=jsonable(
+            {
+                "underwriting_engine_version": UNDERWRITING_ENGINE_VERSION,
+                "risk_model_version": model_prediction.model_version if model_prediction else None,
+                "feature_schema_version": model_prediction.feature_schema_version if model_prediction else "live-alternative-feature-schema-v1",
+                "decision_policy_version": DECISION_POLICY_VERSION,
+                "stress_policy_version": STRESS_POLICY_VERSION,
+                "repayment_envelope_policy_version": REPAYMENT_ENVELOPE_POLICY_VERSION,
+                "behavioral_risk_policy_version": behavioral_assessment.policy_version,
+                "evidence_confidence_policy_version": EVIDENCE_CONFIDENCE_POLICY_VERSION,
+                "evidence_ladder_policy_version": EVIDENCE_LADDER_POLICY_VERSION,
+                "timestamp": utc_now().isoformat(),
+                "evidence_mode": row.get("live_evidence_mode"),
+                "cash_flow_forecast_method": row.get("cash_flow_forecast_method"),
+                "cash_flow_forecast_limitations": row.get("cash_flow_forecast_limitations", []),
+            }
+        ),
     )
     behavioral_assessment.underwriting_result = result
     application.status = ApplicationStatus.ADMIN_REVIEW
@@ -303,6 +331,7 @@ def analyze_platform_application(session: Session, application: LoanApplication,
                 "financial_data_source": application.financial_data_source,
                 "nadi_decision_state": decision["decision_state"],
                 "base_model_risk_probability": base_model_risk_probability,
+                "model_version": model_prediction.model_version if model_prediction else None,
                 "behavioral_risk_probability": behavioral_context["behavioral_probability"],
                 "combined_risk_probability": behavioral_context["combined_probability"],
                 "risk_probability_available": row.get("risk_model_probability") is not None,

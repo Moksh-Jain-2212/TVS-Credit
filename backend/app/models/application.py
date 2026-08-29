@@ -148,6 +148,11 @@ class UnderwritingResult(AppBase):
     loan_officer_explanation_json: Mapped[dict | list | None] = mapped_column(JSON, nullable=True)
     borrower_explanation_json: Mapped[dict | list | None] = mapped_column(JSON, nullable=True)
     repayment_envelope_json: Mapped[dict | list | None] = mapped_column(JSON, nullable=True)
+    model_version: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    feature_schema_version: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    underwriting_engine_version: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    evidence_mode: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    governance_metadata_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
 
     application: Mapped[LoanApplication] = relationship(back_populates="underwriting_results")
@@ -173,6 +178,8 @@ class AdminDecision(AppBase):
     approved_tenure: Mapped[int | None] = mapped_column(Integer, nullable=True)
     approved_emi: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True)
     remarks: Mapped[str | None] = mapped_column(String(2000), nullable=True)
+    override_metadata_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    second_review_required: Mapped[bool] = mapped_column(default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
 
     application: Mapped[LoanApplication] = relationship(back_populates="admin_decisions")

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Metric, ProtectedRoute, StatusBadge, formatCurrency, formatPercent } from "@/components/platform";
 import { useAuth } from "@/context/AuthContext";
 import { getAdminDashboard, type AdminApplicationRow } from "@/lib/api";
@@ -17,12 +18,21 @@ export default function AdminDashboardPage() {
   }, [accessToken]);
 
   const counts = dashboard?.counts ?? {};
+  const rows = dashboard?.recent_applications ?? [];
+  const chartData = (key: keyof AdminApplicationRow, fallback = "Pending") => {
+    const grouped = new Map<string, number>();
+    rows.forEach((row) => {
+      const label = String(row[key] ?? fallback);
+      grouped.set(label, (grouped.get(label) ?? 0) + 1);
+    });
+    return Array.from(grouped, ([name, value]) => ({ name: name.replaceAll("_", " "), value }));
+  };
   return (
     <ProtectedRoute role="ADMIN">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-sm font-bold text-[color:var(--accent)]">Loan Officer</p>
-          <h1 className="text-3xl font-black">Admin Dashboard</h1>
+          <p className="page-kicker">Loan Officer</p>
+          <h1 className="page-title">Admin Dashboard</h1>
         </div>
         <Link className="btn-primary" href="/admin/applications">Review Applications</Link>
       </div>
@@ -34,6 +44,31 @@ export default function AdminDashboardPage() {
         <Metric label="Rejected" value={String(counts.rejected ?? 0)} />
         <Metric label="More Info" value={String(counts.more_information_required ?? 0)} />
       </div>
+      <section className="mt-6 section-panel">
+        <h2 className="text-xl font-bold">Portfolio Signals</h2>
+        <div className="mt-4 grid gap-4 lg:grid-cols-3">
+          {[
+            ["NADI Decisions", chartData("nadi_recommendation")],
+            ["Risk Bands", chartData("risk")],
+            ["Confidence", chartData("confidence_band")],
+          ].map(([title, data]) => (
+            <div className="item-card" key={String(title)}>
+              <div className="metric-label">{String(title)}</div>
+              <div className="mt-3 h-48">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={data as { name: string; value: number }[]}>
+                    <CartesianGrid stroke="#eaecf0" vertical={false} />
+                    <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                    <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+                    <Tooltip />
+                    <Bar dataKey="value" fill="#175cd3" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
       <section className="mt-6 section-panel">
         <h2 className="text-xl font-bold">Recent Applications</h2>
         <div className="mt-4 grid gap-3">

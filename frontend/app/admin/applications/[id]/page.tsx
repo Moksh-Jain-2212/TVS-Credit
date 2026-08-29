@@ -2,11 +2,11 @@
 
 import { useParams } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import {
   ConfidenceGauge,
   Metric,
   ProtectedRoute,
-  RepaymentEnvelope,
   RiskBadge,
   StatusBadge,
   TransactionTable,
@@ -21,6 +21,7 @@ import {
   getAdminApplication,
   type AdminApplicationDetail,
   type GrokExplanation,
+  type RepaymentCandidate,
 } from "@/lib/api";
 
 const decisions = [
@@ -58,6 +59,7 @@ function BehavioralRiskBreakdown({ detail }: { detail: AdminApplicationDetail })
         <Metric label="Coverage" value={formatPercent(detail.behavioral_risk.coverage)} />
         <Metric label="Assessment Confidence" value={detail.behavioral_risk.assessment_confidence !== null ? `${Math.round(detail.behavioral_risk.assessment_confidence)} / 100` : "Not available"} />
       </div>
+      <p className="mt-3 text-xs font-bold text-[color:var(--muted)]">Calibration: {detail.behavioral_risk.calibration_status ?? "Not available"}</p>
       <div className="mt-4 grid gap-2">
         {factors.length ? factors.map((factor, index) => (
           <div className="item-card" key={`${factor.source}-${factor.name}-${index}`}>
@@ -86,6 +88,110 @@ function DataSourceCoverage({ detail }: { detail: AdminApplicationDetail }) {
             </div>
             <ValueLine label="Mode" value={source.connection_mode ?? "NA"} />
             <ValueLine label="Quality" value={source.quality_score !== null ? `${Math.round(source.quality_score * 100)}%` : "NA"} />
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function CashFlowAndStress({ detail }: { detail: AdminApplicationDetail }) {
+  const forecast = detail.forecast;
+  const chart = [
+    { name: "P10", value: forecast?.p10_conservative ?? 0 },
+    { name: "P50", value: forecast?.p50_expected ?? 0 },
+    { name: "P90", value: forecast?.p90_optimistic ?? 0 },
+  ];
+  return (
+    <section className="grid gap-6 lg:grid-cols-2">
+      <div className="section-panel">
+        <h2 className="text-xl font-bold">Cash Flow</h2>
+        <p className="mt-1 text-sm text-[color:var(--muted)]">{forecast?.method ?? "Forecast unavailable"}</p>
+        <div className="mt-4 h-56">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={chart}>
+              <CartesianGrid stroke="#eaecf0" vertical={false} />
+              <XAxis dataKey="name" />
+              <YAxis tickFormatter={(value) => `₹${Math.round(Number(value) / 1000)}k`} />
+              <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+              <Area dataKey="value" fill="#bfdbfe" stroke="#2563eb" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+      <div className="section-panel">
+        <h2 className="text-xl font-bold">Stress Resilience</h2>
+        <div className="mt-4 grid gap-3">
+          <Metric label="Stress probability" value={formatPercent(detail.stress_test?.stress_probability)} />
+          <Metric label="Worst scenario" value={detail.stress_test?.worst_scenario ?? "Not available"} />
+          <Metric label="Minimum buffer" value={formatCurrency(detail.stress_test?.minimum_remaining_cash_buffer)} />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function EnvelopeWorkbench({ candidates }: { candidates: RepaymentCandidate[] }) {
+  const [selected, setSelected] = useState<RepaymentCandidate | null>(candidates[0] ?? null);
+  const amounts = Array.from(new Set(candidates.map((item) => item.amount))).sort((a, b) => a - b);
+  const tenures = Array.from(new Set(candidates.map((item) => item.tenure_months))).sort((a, b) => a - b);
+  useEffect(() => {
+    setSelected((current) => current ?? candidates[0] ?? null);
+  }, [candidates]);
+  if (!candidates.length) {
+    return <section className="section-panel"><h2 className="text-xl font-bold">Repayment Envelope</h2><div className="mt-4 empty-state">Repayment envelope unavailable</div></section>;
+  }
+  return (
+    <section className="section-panel">
+      <h2 className="text-xl font-bold">Repayment Envelope</h2>
+      <div className="mt-4 overflow-x-auto">
+        <table className="data-table min-w-[720px]">
+          <thead>
+            <tr>
+              <th>Tenure</th>
+              {amounts.map((amount) => <th key={amount}>{formatCurrency(amount)}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {tenures.map((tenure) => (
+              <tr key={tenure}>
+                <td className="font-bold">{tenure} mo</td>
+                {amounts.map((amount) => {
+                  const candidate = candidates.find((item) => item.amount === amount && item.tenure_months === tenure);
+                  const isSelected = selected?.amount === amount && selected.tenure_months === tenure;
+                  return (
+                    <td key={`${tenure}-${amount}`}>
+                      {candidate ? <button className={`envelope-cell envelope-${candidate.classification.toLowerCase()} w-full text-left ${isSelected ? "ring-2 ring-[color:var(--info)]" : ""}`} type="button" onClick={() => setSelected(candidate)}>{candidate.classification}</button> : "NA"}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {selected ? (
+        <div className="mt-4 grid gap-3 sm:grid-cols-4">
+          <Metric label="EMI" value={formatCurrency(selected.estimated_emi)} />
+          <Metric label="Projected buffer" value={formatCurrency(selected.minimum_projected_buffer)} />
+          <Metric label="Stress" value={formatPercent(selected.stress_probability)} />
+          <Metric label="Class" value={selected.classification} />
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function AuditTimeline({ detail }: { detail: AdminApplicationDetail }) {
+  return (
+    <section className="section-panel">
+      <h2 className="text-xl font-bold">Audit Timeline</h2>
+      <div className="mt-4 grid gap-3">
+        {detail.audit_history.map((log) => (
+          <div className="grid gap-1 border-l-2 border-[color:var(--accent)] pl-4" key={log.id}>
+            <div className="text-xs font-bold text-[color:var(--muted)]">{new Date(log.created_at).toLocaleString("en-IN")}</div>
+            <div className="font-bold">{log.action.replaceAll("_", " ")}</div>
+            {log.metadata?.override ? <div className="text-sm text-amber-800">Override: {String(log.metadata.override_reason ?? "reason recorded separately")}</div> : null}
           </div>
         ))}
       </div>
@@ -196,8 +302,8 @@ export default function AdminApplicationDetailPage() {
         <div className="grid gap-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="text-sm font-bold text-[color:var(--accent)]">Application #{detail.application.id}</p>
-              <h1 className="text-3xl font-black">{detail.borrower.name}</h1>
+              <p className="page-kicker">Application #{detail.application.id}</p>
+              <h1 className="page-title">{detail.borrower.name}</h1>
             </div>
             <StatusBadge status={detail.application.status} />
           </div>
@@ -245,6 +351,7 @@ export default function AdminApplicationDetailPage() {
               </div>
             </div>
             <div className="section-panel">
+              <h2 className="mb-4 text-xl font-bold">Evidence Confidence</h2>
               <ConfidenceGauge score={detail.evidence_confidence.score} band={detail.evidence_confidence.band} />
             </div>
           </section>
@@ -253,12 +360,8 @@ export default function AdminApplicationDetailPage() {
           <DataSourceCoverage detail={detail} />
           <GrokPanel explanation={grokExplanation} loading={loading} onGenerate={generateGrok} />
 
-          <section className="section-panel">
-            <h2 className="text-xl font-bold">Repayment Envelope</h2>
-            <div className="mt-4">
-              <RepaymentEnvelope candidates={detail.repayment_envelope?.all_evaluated_combinations ?? []} />
-            </div>
-          </section>
+          <EnvelopeWorkbench candidates={detail.repayment_envelope?.all_evaluated_combinations ?? []} />
+          <CashFlowAndStress detail={detail} />
 
           <section className="section-panel">
             <div className="flex flex-wrap items-start justify-between gap-4">
@@ -286,6 +389,11 @@ export default function AdminApplicationDetailPage() {
 
           <form className="section-panel" onSubmit={submitDecision}>
             <h2 className="text-xl font-bold">Admin Decision</h2>
+            {decision === "APPROVE_REQUESTED" && detail.nadi_recommendation.decision !== "APPROVE" ? (
+              <div className="notice mt-4 border-amber-200 bg-amber-50 text-amber-900">
+                This is a material override of NADI. A clear officer justification is required.
+              </div>
+            ) : null}
             <div className="mt-4 grid gap-4 sm:grid-cols-[260px_1fr]">
               <label>
                 <span className="label">Decision</span>
@@ -298,9 +406,11 @@ export default function AdminApplicationDetailPage() {
                 <input className="field" value={remarks} onChange={(event) => setRemarks(event.target.value)} />
               </label>
             </div>
-            {error ? <div className="mt-4 border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div> : null}
+            {error ? <div className="notice mt-4 border-red-200 bg-red-50 text-red-700">{error}</div> : null}
             <button className="btn-primary mt-5" disabled={loading} type="submit">{loading ? "Saving" : "Save Decision"}</button>
           </form>
+
+          <AuditTimeline detail={detail} />
 
           <JsonPanel title="Developer Details: Financial Pulse" value={detail.financial_profile} />
           <JsonPanel title="Developer Details: Cash-flow Forecast" value={detail.forecast} />

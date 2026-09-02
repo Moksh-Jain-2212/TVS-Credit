@@ -9,7 +9,7 @@ from app.core.app_database import get_app_session
 from app.core.security import require_user
 from app.models import User
 from app.schemas.alternative_data import AlternativeDataConsentRequest, AlternativeDataManualInputRequest
-from app.schemas.application import LoanApplicationCreateRequest, LoanApplicationUpdateRequest
+from app.schemas.application import LoanApplicationCreateRequest, LoanApplicationUpdateRequest, NadiAssistantRequest
 from app.services import alternative_data_service
 from app.services import application_service
 
@@ -44,6 +44,19 @@ def get_application(
     data = application_service.serialize_application(application)
     data["notifications"] = application_service.status_messages(application)
     return data
+
+
+@router.post("/applications/{application_id}/ask-nadi")
+def ask_nadi(
+    application_id: int,
+    request: NadiAssistantRequest,
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_app_session),
+) -> dict:
+    from app.services.nadi_assistant import answer_question
+
+    application = application_service.get_owned_application(session, current_user, application_id)
+    return answer_question(session, application, request.question)
 
 
 @router.put("/applications/{application_id}")

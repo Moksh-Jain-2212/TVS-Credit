@@ -10,6 +10,7 @@ venv/
 # Data and model artifacts
 data/raw/pkdd/*.asc
 data/raw/home_credit/
+data/raw/paysim/
 data/processed/*
 !data/processed/.gitkeep
 data/*.db

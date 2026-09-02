@@ -465,6 +465,13 @@ export type PlatformTransaction = {
   category: string | null;
 };
 
+export type NadiAssistantResponse = {
+  answer: string;
+  provider: "xAI" | "fallback" | string;
+  prompt_version: string;
+  disclaimer: string;
+};
+
 export function register(payload: {
   name: string;
   email: string;
@@ -543,6 +550,13 @@ export function listPlatformApplications(token: string): Promise<PlatformApplica
 
 export function getPlatformApplication(id: number, token: string): Promise<PlatformApplication> {
   return platformRequest<PlatformApplication>(`/user/applications/${id}`, undefined, token);
+}
+
+export function askNadi(id: number, question: string, token: string): Promise<NadiAssistantResponse> {
+  return platformRequest<NadiAssistantResponse>(`/user/applications/${id}/ask-nadi`, {
+    method: "POST",
+    body: JSON.stringify({ question }),
+  }, token);
 }
 
 export function connectDemoFinancialProfile(id: number, token: string): Promise<Record<string, string | number>> {

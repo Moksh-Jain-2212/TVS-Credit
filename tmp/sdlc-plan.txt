@@ -1,0 +1,1450 @@
+TVS NADI -- Adaptive Credit Path Engine
+
+Software Development Life Cycle Master Document
+
+Project Type: AI/ML-powered FinTech underwriting platform
+Primary Use Case: Alternative-data credit underwriting for new-to-credit and thin-file borrowers
+Hackathon Context: TVS Credit EPIC 8
+Primary Dataset: PKDD Financial/Banking Dataset
+Primary Goal: Build a technically credible, explainable, visually compelling hackathon MVP that can evolve
+into a production lending product.
+
+1. Executive Summary & Product Vision
+
+1.1 Project Overview
+
+TVS NADI is an alternative-data underwriting system designed for borrowers who have little or no
+traditional credit-bureau history.
+
+Traditional credit systems often struggle with first-time borrowers because they rely heavily on historical
+loan repayment data. When that history does not exist, uncertainty can be treated as risk.
+
+NADI addresses this by analysing real financial behaviour such as:
+
+        · transaction history;
+        · cash inflows;
+        · expenses;
+        · account balances;
+        · income stability;
+        · recurring obligations;
+        · cash-flow volatility;
+        · financial resilience;
+        · repayment behaviour.
+The system does not collapse everything into a single generic credit score.
+
+Instead, it separately measures:
+
+      1. Risk
+      2. Repayment Capacity
+      3. Evidence Confidence
+These three dimensions are then used to determine what credit decision can be responsibly made.
+
+                                                                           1
+1.2 Core Product Vision
+
+The core principle is:
+          No credit history does not automatically mean high risk.
+
+NADI attempts to distinguish:
+   UNKNOWN RISK
+   from
+   HIGH RISK
+
+This distinction creates an opportunity to lend responsibly to customers who would otherwise be rejected
+because of insufficient traditional credit information.
+
+1.3 Core Innovation -- SAFE_TO_LEARN
+
+The most important NADI innovation is:
+
+SAFE_TO_LEARN
+
+Suppose a customer requests:
+   1,00,000
+
+Available alternative data suggests that the customer may eventually be able to support this amount.
+However:
+
+   Evidence Confidence = 58%
+NADI may determine that 1 lakh cannot yet be justified with sufficient certainty.
+Instead of immediately rejecting the customer, NADI calculates:
+
+                                                                           2
+   Current safe exposure = 30,000
+
+The system can therefore recommend:
+
+   SAFE_TO_LEARN
+   Starter Exposure: 30,000
+
+If the borrower later demonstrates successful repayment behaviour, this becomes new financial evidence.
+NADI then performs the complete underwriting process again.
+The safe exposure may become:
+
+   30,000
+          
+
+   55,000
+          
+
+   75,000
+          
+
+   Potentially 1,00,000
+
+Credit expansion is never automatic.
+Every increase requires re-underwriting.
+
+1.4 Target Users
+
+Primary Users
+
+TVS Credit Loan Officers
+
+Need:
+        · clear lending recommendations;
+        · risk indicators;
+        · affordability analysis;
+        · explanation of decision drivers.
+
+                                                                           3
+TVS Credit Risk Team
+
+Need:
+
+        · calibrated risk estimates;
+        · confidence information;
+        · stress scenarios;
+        · auditable lending rules.
+
+New-to-Credit Borrowers
+
+Examples:
+
+        · first-time borrowers;
+        · gig workers;
+        · merchants;
+        · informal-sector workers;
+        · rural borrowers;
+        · customers with limited formal credit histories.
+They need:
+
+        · fair evaluation;
+        · understandable explanations;
+        · paths toward stronger future credit eligibility.
+
+1.5 Business Problem
+
+Traditional underwriting commonly follows:
+
+   Loan Application
+                
+
+   Credit Bureau
+                
+
+   Credit Score
+                
+
+   Approve / Reject
+
+NADI proposes:
+
+   Application
+                
+
+   Financial Behaviour
+
+                                                                           4
+                
+   Risk
+   +
+   Capacity
+   +
+   Evidence Confidence
+
+                
+   Cash-Flow Forecast
+
+                
+   Stress Testing
+
+                
+   Repayment Envelope
+
+                
+   Adaptive Decision
+
+The objective is not to lower lending standards.
+
+The objective is to:
+
+          reduce uncertainty before increasing risk appetite.
+
+2. Comprehensive Feature List
+
+2.1 MVP Features
+
+These features should be completed for the hackathon.
+
+Module A -- Financial Data Processing
+
+A1. PKDD Dataset Loader
+
+Load:
+
+   account.asc
+   trans.asc
+   loan.asc
+   disp.asc
+   client.asc
+   order.asc
+
+Secondary files:
+
+                                                                           5
+   card.asc
+   district.asc
+are not required for the core underwriting MVP.
+
+A2. Data Cleaning
+
+System handles:
+        · dates;
+        · transaction amounts;
+        · transaction types;
+        · missing values;
+        · duplicate records;
+        · account identifiers;
+        · borrower-account relationships.
+
+A3. SQLite Storage
+
+Import processed records into:
+
+   data/nadi.db
+Main entities:
+
+   Client
+   Account
+   Transaction
+   Loan
+   Disposition
+   Standing Order
+
+                                                                           6
+Module B -- Financial Behaviour Intelligence
+
+B1. Cash-Inflow Analysis
+
+Calculate:
+        · average monthly inflow;
+        · median monthly inflow;
+        · P10 monthly inflow;
+        · income trend;
+        · recurring inflows.
+
+B2. Expense Analysis
+
+Calculate:
+        · monthly outflows;
+        · recurring expenses;
+        · standing obligations;
+        · expense volatility.
+
+B3. Cash-Flow Analysis
+
+Calculate:
+
+   Net Cash Flow =
+   Inflows - Outflows
+
+Features:
+        · average monthly surplus;
+        · positive cash-flow month ratio;
+        · worst cash-flow month.
+
+B4. Liquidity Analysis
+
+Calculate:
+        · average account balance;
+        · minimum balance;
+
+                                                                           7
+        · balance volatility;
+        · buffer availability.
+
+Module C -- Stability Intelligence
+
+C1. Income Stability
+
+Measure variation across months.
+Possible metric:
+
+   Income Volatility =
+   StdDev(monthly inflows)
+   / Mean(monthly inflows)
+
+C2. Cash-Flow Stability
+
+Measure whether monthly surplus remains consistently positive.
+
+C3. Income Trend
+
+Identify whether the customer's financial behaviour is:
+   Growing
+   Stable
+   Declining
+
+C4. Seasonality Detection
+
+Identify recurring high- and low-income periods where sufficient history exists.
+Return:
+
+                                                                           8
+   Seasonality strength
+   High-income periods
+   Low-income periods
+If history is insufficient:
+
+   insufficient_history
+
+Module D -- Risk Intelligence
+
+D1. Baseline Risk Model
+
+Use:
+
+   Logistic Regression
+as an interpretable baseline.
+
+D2. Challenger Model
+
+Use one tree-based model:
+
+   Gradient Boosting
+   or
+   XGBoost
+   or
+   LightGBM
+Choose based on actual validation performance.
+
+D3. Risk Probability
+
+Output:
+
+   Repayment Risk = X%
+
+                                                                           9
+Risk remains separate from affordability and confidence.
+
+Module E -- Evidence Confidence
+
+E1. Confidence Score
+
+Calculate:
+
+   0­100
+
+using:
+        · months of historical data;
+        · transaction density;
+        · missing-data rate;
+        · evidence completeness;
+        · consistency;
+        · model uncertainty.
+
+Example:
+
+   Evidence Confidence = 58
+   Band = MEDIUM
+
+E2. Confidence Reasons
+
+Example:
+
+   Positive:
+   + 11 months transaction history
+   + high transaction coverage
+   Negative:
+   - only one financial data source
+   - high forecast uncertainty
+
+                                                                           10
+Module F -- Cash-Flow Forecast
+
+Predict:
+
+   P10
+   P50
+   P90
+
+where:
+
+   P10 = conservative scenario
+   P50 = expected scenario
+   P90 = optimistic scenario
+
+The system should communicate uncertainty instead of pretending to know the future exactly.
+
+Module G -- Financial Stress Simulator
+
+Stress scenarios:
+
+   Normal
+   Income -10%
+   Income -20%
+   Income -30%
+   Emergency expense
+   Low-income period
+   Combined shock
+
+Calculate:
+
+        · stress probability;
+        · scenario survival;
+        · minimum cash buffer;
+        · worst scenario.
+
+Module H -- Repayment Envelope
+
+This is a core innovation.
+
+                                                                           11
+Evaluate combinations such as:
+
+Loan Amount × Tenure
+
+Example:
+
+          Amount 6m                     12m          18m     24m
+
+          30k                   Safe    Safe         Safe    Safe
+
+          50k                   Borderline Safe      Safe    Safe
+
+          70k                   Unsafe  Borderline Safe      Safe
+
+          90k                   Unsafe  Unsafe       Borderline Safe
+
+          110k                  Unsafe  Unsafe       Unsafe  Borderline
+
+Output:
+
+Maximum Safe Exposure
+Recommended Amount
+Recommended Tenure
+Recommended EMI
+
+Module I -- Four-State Decision Engine
+
+NADI supports:
+
+APPROVE
+
+Enough evidence and requested loan is safe.
+
+SAFE_TO_LEARN
+
+Requested amount is too uncertain, but smaller exposure is safe.
+
+EVIDENCE_NEEDED
+
+Not enough reliable information.
+
+                                                 12
+NOT_CURRENTLY_AFFORDABLE
+
+Evidence is adequate but affordability is genuinely insufficient.
+
+Module J -- Adaptive Credit Path
+
+For SAFE_TO_LEARN borrowers:
+
+   Current Safe Exposure
+                
+
+   Starter Credit
+                
+
+   Repayment Observation
+                
+
+   Updated Evidence
+                
+
+   Re-underwriting
+                
+
+   Updated Repayment Envelope
+
+No hard-coded automatic credit-limit increase is permitted.
+
+Module K -- Explainability
+
+Two explanation modes.
+
+Loan Officer
+
+Technical but readable:
+
+        · risk;
+        · capacity;
+        · confidence;
+        · positive drivers;
+        · negative drivers;
+        · stress results;
+        · safe amount.
+
+Borrower
+
+Simple language.
+
+                                                                           13
+Example:
+          Your current cash flow supports a smaller starter loan, but available financial history is
+          limited. Successful repayment may improve future eligibility after another assessment.
+
+Module L -- Demo Dashboard
+
+Four primary screens:
+
+Applicant
+
+Borrower and requested amount.
+
+Financial Pulse
+
+Risk, capacity, confidence and financial behaviour.
+
+Repayment Envelope
+
+Safe loan combinations.
+
+Adaptive Credit Path
+
+How evidence and safe exposure change through re-underwriting.
+
+2.2 Secondary Features -- Phase 2
+
+After the hackathon MVP:
+        · Evidence Ladder;
+        · advanced fraud/anomaly detection;
+        · standing-order obligation classification;
+        · model monitoring;
+        · fairness dashboard;
+        · additional scenario simulations;
+        · portfolio analytics;
+        · configurable lender policies;
+        · enhanced borrower explanations;
+        · multilingual borrower interface.
+
+                                                                           14
+2.3 Future Features
+
+Potential production expansion:
+
+        · Account Aggregator integration;
+        · GST integration;
+        · consented utility-data integration;
+        · TVS internal repayment-data integration;
+        · UPI-derived aggregate financial behaviour;
+        · real-time loan-policy engine;
+        · portfolio early-warning system;
+        · collections prioritisation;
+        · customer credit-building recommendations;
+        · lender-specific model retraining;
+        · advanced MLOps infrastructure.
+
+3. Phase-by-Phase SDLC Plan
+
+Phase 1 -- Requirement Analysis & Planning
+
+Objectives
+
+Define:
+
+        · problem;
+        · user;
+        · lending decision;
+        · dataset;
+        · MVP;
+        · constraints;
+        · success metrics.
+
+Step 1 -- Define Core Problem
+
+Problem:
+
+          Thin-file customers may be rejected because uncertainty is confused with high risk.
+
+                                                                           15
+Step 2 -- Define Core Product Hypothesis
+
+Hypothesis:
+
+          Alternative financial behaviour can help estimate repayment capacity and distinguish
+          insufficient evidence from genuine financial weakness.
+
+Step 3 -- Define Scope
+
+Must build:
+
+   PKDD pipeline
+   Financial features
+   Risk
+   Confidence
+   Forecast
+   Stress test
+   Repayment Envelope
+   Decision engine
+   Adaptive Credit Path
+   Dashboard
+
+Do not prioritise:
+
+   Blockchain
+   Chatbot
+   Complex mobile application
+   Microservices
+   Real banking integrations
+   Deep learning
+
+Step 4 -- Define Dataset
+
+Primary dataset:
+
+PKDD Financial Dataset
+
+Use:
+
+                                                                           16
+   trans
+   loan
+   account
+   client
+   disp
+   order
+
+Step 5 -- Define Success Metrics
+
+ML:
+
+        · ROC-AUC;
+        · PR-AUC;
+        · Brier score;
+        · calibration.
+Forecast:
+
+        · MAE;
+        · pinball loss;
+        · interval coverage.
+Business:
+
+        · approval lift;
+        · safe exposure;
+        · stress survivability;
+        · thin-file inclusion.
+
+Deliverables
+
+        · product requirements;
+        · architecture scope;
+        · dataset plan;
+        · MVP definition;
+        · development phases.
+
+                                                                           17
+Phase 2 -- System Design
+
+2.1 Architecture
+
+   PKDD Data
+          
+
+   Data Processing
+          
+
+   SQLite
+          
+
+   Feature Engine
+          
+
+   Risk + Confidence + Capacity
+          
+
+   Forecast
+          
+
+   Stress Test
+          
+
+   Repayment Envelope
+          
+
+   Decision Engine
+          
+
+   FastAPI
+          
+
+   Next.js Dashboard
+
+2.2 Database Design
+
+Main tables:
+
+   clients
+   accounts
+   dispositions
+   transactions
+   loans
+   standing_orders
+   applications
+   repayment_events
+
+Relationships:
+
+                                                                           18
+Client
+
+   
+Disposition
+
+   
+Account
+
+    Transactions
+    Loan
+    Orders
+
+2.3 ML Architecture
+
+Historical Transactions
+
+              
+Feature Engineering
+
+
+
+
+
+ Risk Model              
+
+ Confidence Engine       
+
+ Cash-Flow Forecast      
+
+
+
+              
+Stress Simulator
+
+              
+Repayment Envelope
+
+2.4 UI Wireframes
+
+Screen 1
+
+Applicant overview.
+
+Screen 2
+
+Financial Pulse.
+
+Screen 3
+
+Repayment Envelope.
+
+                           19
+Screen 4
+
+Adaptive Credit Path.
+Avoid unnecessary screens.
+
+Deliverables
+
+        · architecture;
+        · database design;
+        · ML flow;
+        · API plan;
+        · UI wireframes.
+
+Phase 3 -- Development & Implementation
+
+Development should happen in controlled phases rather than building everything simultaneously.
+
+Sprint 1 -- Data Foundation
+
+Build:
+
+   ASC loader
+   CSV converter
+   SQLite import
+   Data validation
+
+Sprint 2 -- Financial Intelligence
+
+Build:
+
+   Feature Engine
+   Stability
+   Trend
+   Seasonality
+
+                                                                           20
+Sprint 3 -- ML Intelligence
+
+Build:
+
+   Risk Model
+   Confidence Engine
+   Forecast
+
+Sprint 4 -- NADI Core
+
+Build:
+
+   Stress Simulator
+   Repayment Envelope
+   Decision Engine
+
+Sprint 5 -- Adaptive Credit
+
+Build:
+
+   SAFE_TO_LEARN
+   Repayment events
+   Re-underwriting
+   Credit Path
+
+Sprint 6 -- Backend
+
+Build FastAPI endpoints.
+
+Sprint 7 -- Frontend
+
+Build:
+
+   Financial Pulse
+   Repayment Envelope
+
+                                                                           21
+   Credit Path
+   Demo Controls
+
+Phase 4 -- Testing & Quality Assurance
+
+4.1 Unit Testing
+
+Test:
+        · transaction aggregation;
+        · cash-flow calculations;
+        · EMI calculation;
+        · confidence score;
+        · stress scenarios;
+        · decision rules.
+
+4.2 Temporal Leakage Testing
+
+Critical requirement:
+For a loan originating at time:
+
+   T
+features must only use:
+
+   transactions < T
+Never:
+
+   transactions > T
+
+4.3 ML Validation
+
+Check:
+        · overfitting;
+
+                                                                           22
+        · class imbalance;
+        · leakage;
+        · calibration;
+        · metric stability.
+
+4.4 Integration Testing
+
+Test:
+
+   Database
+    Features
+    ML
+    Stress
+    Envelope
+    Decision
+    API
+    Frontend
+
+4.5 Decision Testing
+
+Must successfully generate:
+
+   APPROVE
+   SAFE_TO_LEARN
+   EVIDENCE_NEEDED
+   NOT_CURRENTLY_AFFORDABLE
+
+4.6 Adaptive Credit Testing
+
+Test:
+
+   SAFE_TO_LEARN
+    repayment
+    updated evidence
+    re-underwriting
+    updated envelope
+
+Also test:
+
+                                                                           23
+   missed repayment
+and confirm credit does not automatically increase.
+
+4.7 User Acceptance Testing
+
+Run complete three-minute demo.
+If judges cannot understand the innovation quickly, simplify the UI.
+
+Phase 5 -- Deployment
+
+For the hackathon, prefer reliability over infrastructure sophistication.
+
+MVP Deployment
+
+Run locally.
+
+Backend
+
+   cd backend
+   uvicorn app.main:app --reload
+
+Frontend
+
+   cd frontend
+   npm run dev
+Open:
+   http://localhost:3000
+This avoids depending on event Wi-Fi.
+
+                                                                           24
+Optional Online Deployment
+
+If required:
+Frontend:
+
+   Vercel
+Backend:
+
+   Render / Railway / equivalent
+Database:
+SQLite initially.
+If cloud persistence becomes necessary:
+PostgreSQL.
+
+CI/CD
+
+For hackathon MVP, keep CI/CD minimal.
+GitHub workflow could eventually run:
+
+   pytest
+   frontend lint
+   frontend build
+Do not invest major hackathon time into deployment automation.
+
+Phase 6 -- Maintenance & Scaling
+
+Production evolution would require:
+        · PostgreSQL;
+        · model registry;
+
+                                                                           25
+· feature versioning;
+· monitoring;
+· drift detection;
+· fairness monitoring;
+· audit trails;
+· lender-policy versioning;
+· secure secret management;
+· consent lifecycle;
+· production Account Aggregator integration.
+
+4. Recommended Technology Stack
+
+Layer            Technology                          Reason
+Language         Python 3.11+                        Best ecosystem for financial ML/data
+Data Processing  Pandas, NumPy                       Efficient tabular processing
+                                                     Simple, fast, automatic API
+Backend          FastAPI                             documentation
+                                                     Strong typed API validation
+Validation       Pydantic                            Clean database abstraction
+ORM              SQLAlchemy                          No external server required
+MVP Database     SQLite                              Scalable transactional database
+Production DB    PostgreSQL                          Interpretable baseline
+ML Baseline      Logistic Regression                 Strong tabular performance
+ML Challenger    Gradient Boosting/XGBoost/LightGBM  Better fit than unnecessary deep
+                                                     learning
+Forecast         Statistical/quantile modelling
+                                                     Auditable predictions
+Explainability   Feature-level reasoning / SHAP if
+                 needed                              Mature Python testing
+Testing          pytest                              Fast modern web development
+Frontend         Next.js                             Safer frontend development
+Language         TypeScript                          Rapid UI development
+Styling          Tailwind CSS                        Lightweight financial visualisation
+Charts           Recharts                            Version history and collaboration
+Source Control   Git
+
+                                              26
+Layer     Technology                                                           Reason
+          Vercel + Render                                                      Quick hackathon deployment
+Optional
+Hosting
+
+5. Milestones & Estimated Timeline
+
+For a hackathon, this should not be interpreted as a traditional multi-month SDLC.
+
+A compressed implementation could follow:
+
+Milestone 1 -- Foundation
+
+10­15% of development time
+
+Deliver:
+
+   Repository
+   Dataset inspection
+   CSV processing
+   SQLite
+
+Milestone 2 -- Financial Intelligence
+
+15­20%
+
+Deliver:
+
+   Pre-loan features
+   Cash flow
+   Stability
+   Trend
+
+Milestone 3 -- Modelling
+
+15­20%
+Deliver:
+
+                                                                           27
+   Risk
+   Confidence
+   Forecast
+
+Milestone 4 -- NADI Core
+
+20­25%
+Highest-priority milestone.
+Deliver:
+
+   Stress Simulator
+   Repayment Envelope
+   4-State Decision Engine
+
+Milestone 5 -- Adaptive Credit
+
+10­15%
+Deliver:
+
+   SAFE_TO_LEARN
+   Repayment observations
+   Re-underwriting
+   Credit Path
+
+Milestone 6 -- Frontend
+
+10­15%
+Deliver:
+
+   Financial Pulse
+   Envelope
+
+                                                                           28
+   Credit Path
+   Demo
+
+Milestone 7 -- Integration & Polish
+
+10%
+Deliver:
+
+   Bug fixes
+   Demo customers
+   Reset behaviour
+   README
+   Presentation-ready system
+
+6. Risk Management & Mitigation
+Risk 1 -- Data Leakage
+
+Problem
+
+Using post-loan transactions could allow the model to indirectly see the outcome it is supposed to predict.
+
+Mitigation
+
+Enforce:
+   transaction_date < loan_date
+
+for every underwriting feature.
+Create explicit unit tests.
+
+                                                                           29
+Risk 2 -- Small / Historical Dataset
+
+Problem
+
+PKDD is useful for transaction modelling but does not perfectly represent modern Indian UPI/GST lending.
+
+Mitigation
+
+Clearly explain:
+          PKDD is used to demonstrate and validate the core financial-behaviour methodology. Indian-
+          specific integrations are mocked because production transaction data is not publicly
+          available.
+
+Do not pretend PKDD is Indian TVS customer data.
+
+Risk 3 -- Unrealistic ML Performance
+
+Problem
+
+A very high AUC may result from leakage or problematic target features.
+
+Mitigation
+
+Investigate:
+        · post-loan variables;
+        · target-derived features;
+        · train/test contamination;
+        · overly obvious loan-status variables.
+
+Prefer credible performance over impressive-looking fake results.
+
+Risk 4 -- SAFE_TO_LEARN Appears Like Reckless
+Lending
+
+Problem
+
+A judge may interpret the starter loan as "lend money just to test the borrower."
+
+                                                                           30
+Mitigation
+
+Make the policy explicit:
+          Information gain can only optimise among exposures that are already conservatively
+          affordable.
+
+The system never approves an unsafe starter loan purely to collect data.
+
+Risk 5 -- Overbuilding
+
+Problem
+
+Too many features may prevent completion of the core innovation.
+
+Mitigation
+
+Prioritise:
+
+   Risk
+   Confidence
+   Stress
+   Repayment Envelope
+   SAFE_TO_LEARN
+   Re-underwriting
+
+over:
+
+   Chatbots
+   Blockchain
+   Complex fraud systems
+   Cloud architecture
+   Mobile apps
+
+7. Development Priorities
+
+The absolute minimum winning chain is:
+
+                                                                           31
+   Real PKDD transactions
+                 
+
+   Pre-loan financial features
+                 
+
+   Risk
+   +
+   Evidence Confidence
+
+                 
+   Cash-flow forecast
+
+                 
+   Stress test
+
+                 
+   Repayment Envelope
+
+                 
+   SAFE_TO_LEARN
+
+                 
+   Starter exposure
+
+                 
+   Simulated repayment
+
+                 
+   REAL re-underwriting
+
+                 
+   Updated Repayment Envelope
+
+If this works correctly, the project already demonstrates the primary NADI innovation.
+
+8. Manual vs Automated Development
+Responsibilities
+
+Codex Should Handle
+
+Codex can:
+
+        · create files;
+        · create repository structure;
+        · write Python;
+        · create SQLAlchemy models;
+        · process .asc files;
+        · generate CSVs;
+        · import SQLite;
+        · write feature-engineering code;
+        · train ML models;
+
+                                                                           32
+        · run pytest;
+        · create FastAPI routes;
+        · build frontend components;
+        · run development commands when terminal access exists;
+        · debug implementation problems.
+
+Team Must Handle
+
+The team should personally:
+
+        · download and verify the dataset;
+        · understand the loan-status target;
+        · inspect feature values;
+        · validate model results;
+        · identify suspicious model performance;
+        · understand the Repayment Envelope;
+        · verify Adaptive Credit is genuine re-underwriting;
+        · choose demo customers;
+        · review customer explanations;
+        · test the entire UI;
+        · understand and defend architectural decisions.
+
+Codex should assist implementation.
+
+It should not replace the team's understanding.
+
+9. Data Preparation Lifecycle
+
+The dataset lifecycle is:
+
+   PKDD .asc
+              
+
+   data/raw/pkdd/
+              
+
+   prepare_pkdd.py
+              
+
+   Clean CSV
+              
+
+   SQLite Import
+              
+
+   nadi.db
+              
+
+   Feature Engine
+
+                                                                           33
+              
+   nadi_features.csv
+
+              
+   Risk/Forecast Models
+
+              
+   Saved Models
+
+Dataset preparation and training do not need to occur every time the application starts.
+
+10. Final Runtime Architecture
+
+Once the project is completed:
+
+         Browser
+
+         
+
+                   
+         Next.js UI
+
+              
+         REST API
+
+         
+
+              
+         FastAPI
+
+         
+
+
+
+                                    
+SQLite   ML Models             Policy Engine
+
+                               
+
+
+
+                       
+         NADI Decision Engine
+
+The final demo should therefore require only:
+
+Backend
+
+cd backend
+uvicorn app.main:app --reload
+
+                                               34
+Frontend
+
+   cd frontend
+   npm run dev
+
+11. Final Demo Flow
+
+The best demo should focus on one borrower.
+
+Scene 1 -- Invisible Customer
+
+   Requested: 1,00,000
+   Bureau history: None
+
+Scene 2 -- NADI Analysis
+
+Show:
+   Capacity: Strong
+   Risk: Acceptable
+   Evidence Confidence: 58%
+
+Scene 3 -- Requested Loan Stress Test
+
+1 lakh fails conservative stress conditions.
+
+Scene 4 -- SAFE_TO_LEARN
+
+NADI recommends:
+   Starter Exposure: 30,000
+
+                                                                           35
+Scene 5 -- Repayment
+
+Click:
+
+   Simulate On-Time Repayment
+multiple times.
+
+Scene 6 -- Re-underwriting
+
+NADI reruns:
+
+   Risk
+   Confidence
+   Forecast
+   Stress
+   Repayment Envelope
+
+Scene 7 -- New Credit Path
+
+For example:
+
+   Confidence
+   58  79
+   Safe Exposure
+   30k  62k
+
+12. Product Positioning
+
+Do not describe NADI as:
+          "An AI credit scoring dashboard."
+
+Describe it as:
+
+                                                                           36
+          An uncertainty-aware adaptive underwriting engine that determines what credit a
+          financially invisible customer can safely support today and gives them a responsible
+          path to prove eligibility for more tomorrow.
+
+13. One-Sentence Product Description
+
+TVS NADI converts real cash-flow behaviour into an adaptive credit path, separating risk from
+uncertainty so new-to-credit customers can start safely and build stronger eligibility through
+demonstrated repayment behaviour.
+
+14. Core Competitive Differentiation
+
+Traditional systems:
+
+   No history
+    uncertainty
+    rejection
+
+NADI:
+
+   No history
+    measure uncertainty
+    find safe exposure
+    observe repayment
+    reduce uncertainty
+    re-underwrite
+
+The important innovation is therefore not merely alternative data.
+It is:
+
+Progressive underwriting through safe evidence
+generation.
+
+                                                                           37
+15. Final Product Principle
+
+Every technical decision should support this statement:
+          NADI does not make a blind bet on an invisible borrower. It finds the safest useful
+          decision that can be made with today's evidence, then allows real repayment behaviour
+          to progressively replace uncertainty with proof.
+
+                                                                           38
+

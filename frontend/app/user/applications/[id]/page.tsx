@@ -1,10 +1,11 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { ApplicationSummary, ProtectedRoute, formatCurrency, formatPercent } from "@/components/platform";
+import ElectricBorder from "@/components/ElectricBorder";
 import { useAuth } from "@/context/AuthContext";
-import { getPlatformApplication, type PlatformApplication, type SegmentAnalysis } from "@/lib/api";
+import { askNadi, getPlatformApplication, type NadiAssistantResponse, type PlatformApplication, type SegmentAnalysis } from "@/lib/api";
 
 function formatMetricValue(key: string, value: number | string | null | undefined): string {
   if (typeof value === "number") {
@@ -44,6 +45,51 @@ function SegmentFinancialPanel({ analysis }: { analysis: SegmentAnalysis }) {
   );
 }
 
+function AskNadiPanel({ applicationId, token }: { applicationId: number; token: string }) {
+  const [question, setQuestion] = useState("Why did NADI make this decision?");
+  const [response, setResponse] = useState<NadiAssistantResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    if (!question.trim()) return;
+    setLoading(true);
+    setError(null);
+    try {
+      setResponse(await askNadi(applicationId, question, token));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Ask NADI is unavailable right now.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <section className="section-panel">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="page-kicker">Generative AI explanation</p>
+          <h2 className="text-xl font-bold">Ask NADI</h2>
+        </div>
+        {response ? <span className="badge badge-info">{response.provider === "xAI" ? "AI response" : "Guided response"}</span> : null}
+      </div>
+      <p className="mt-2 text-sm leading-6 text-[color:var(--muted)]">Ask about your existing assessment, SAFE TO LEARN, or evidence. This assistant cannot change your application decision.</p>
+      <form className="mt-4 flex flex-col gap-3 sm:flex-row" onSubmit={submit}>
+        <input className="field flex-1" value={question} maxLength={500} onChange={(event) => setQuestion(event.target.value)} placeholder="Ask about this assessment" />
+        <button className="btn-primary" type="submit" disabled={loading}>{loading ? "Thinking" : "Ask NADI"}</button>
+      </form>
+      {error ? <div className="notice mt-4 border-red-200 bg-red-50 text-red-700">{error}</div> : null}
+      {response ? (
+        <div className="mt-4 rounded-xl border border-[color:var(--line)] bg-[#f8fafc] p-4">
+          <p className="text-sm leading-6">{response.answer}</p>
+          <p className="mt-3 text-xs font-semibold text-[color:var(--muted)]">{response.disclaimer}</p>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 export default function UserApplicationDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { accessToken } = useAuth();
@@ -77,7 +123,7 @@ export default function UserApplicationDetailPage() {
             ) : null}
           </section>
           {application.latest_underwriting?.behavioral_risk ? (
-            <section className="section-panel">
+            <section className="decision-panel section-panel">
               <h2 className="text-xl font-bold">Alternative-data Evidence</h2>
               <div className="mt-4 grid gap-3 sm:grid-cols-3">
                 <div className="metric-card"><div className="metric-label">Alternative-data coverage</div><div className="metric-value">{formatPercent(application.latest_underwriting.behavioral_risk.behavioral_data_coverage)}</div></div>
@@ -98,6 +144,7 @@ export default function UserApplicationDetailPage() {
               </div>
             </section>
           ) : null}
+          {accessToken ? <ElectricBorder color="#7df9ff" speed={1} chaos={0.12} thickness={2} style={{ borderRadius: 16 }}><AskNadiPanel applicationId={application.id} token={accessToken} /></ElectricBorder> : null}
           <section className="section-panel">
             <h2 className="text-xl font-bold">Status Feedback</h2>
             <div className="mt-4 grid gap-2">

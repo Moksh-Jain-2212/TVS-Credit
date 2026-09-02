@@ -78,6 +78,18 @@ def test_generate_repayment_envelope_can_return_no_safe_candidates() -> None:
     assert "risk probability" in envelope["all_evaluated_combinations"][0]["classification_reasons"][0]
 
 
+def test_generate_repayment_envelope_uses_smallest_borderline_option_as_conservative_starter() -> None:
+    row = strong_row()
+    row["risk_model_probability"] = 0.50
+    row["confidence_score"] = 69
+
+    envelope = generate_repayment_envelope(row, policy())
+
+    assert envelope["recommendation_basis"] == "CONSERVATIVE_STARTER"
+    assert envelope["recommended_amount"] == 20_000
+    assert envelope["recommended_tenure"] == 12
+
+
 def test_add_repayment_envelope_appends_columns_and_is_rerunnable(tmp_path: Path) -> None:
     features_path = tmp_path / "nadi_features.csv"
     policy_path = tmp_path / "repayment_envelope_policy.json"

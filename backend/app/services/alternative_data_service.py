@@ -23,6 +23,7 @@ from app.models import (
     User,
 )
 from app.services.alternative_data.registry import get_adapter, supported_sources
+from app.services.alternative_data.synthetic_evidence_generator import generated_mock_payload
 from app.services.behavioral_risk import assess_behavioral_risk, latest_active_snapshot, latest_behavioral_assessment
 from app.services.segment_analysis import SEGMENT_LABELS, SEGMENT_RELEVANT_SOURCES, normalize_borrower_segment
 
@@ -223,6 +224,7 @@ def persist_normalized_source(
     source: AlternativeSourceType,
     payload: dict[str, Any],
     mode: DataConnectionMode,
+    provenance_extra: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     if not consent_is_granted(session, application.id, source):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Grant consent before connecting this source")
@@ -242,6 +244,8 @@ def persist_normalized_source(
         "pii_excluded": True,
         "raw_payload_persisted": False,
     }
+    if provenance_extra:
+        provenance.update(provenance_extra)
     connection = AlternativeDataConnection(
         application=application,
         source_type=source,
@@ -290,8 +294,9 @@ def persist_normalized_source(
 def connect_mock_source(session: Session, application: LoanApplication, user: User, source_type: str) -> dict[str, Any]:
     assert_editable(application)
     source = parse_source(source_type)
-    payload = get_adapter(source).mock_payload()
-    return persist_normalized_source(session, application, user, source, payload, DataConnectionMode.MOCK)
+    generated = generated_mock_payload(application, source)
+    payload, provenance = generated if generated is not None else (get_adapter(source).mock_payload(), None)
+    return persist_normalized_source(session, application, user, source, payload, DataConnectionMode.MOCK, provenance)
 
 
 def connect_manual_source(
@@ -312,5 +317,6 @@ def refresh_source(session: Session, application: LoanApplication, user: User, s
     connection = latest_connection(session, application.id, source)
     if connection is None or connection.status != DataConnectionStatus.CONNECTED:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Source is not connected")
-    payload = get_adapter(source).mock_payload()
-    return persist_normalized_source(session, application, user, source, payload, connection.mode or DataConnectionMode.MOCK)
+    generated = generated_mock_payload(application, source)
+    payload, provenance = generated if generated is not None else (get_adapter(source).mock_payload(), None)
+    return persist_normalized_source(session, application, user, source, payload, connection.mode or DataConnectionMode.MOCK, provenance)

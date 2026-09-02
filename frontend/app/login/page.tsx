@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import Lightfall from "@/components/Lightfall";
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -29,14 +30,15 @@ export default function LoginPage() {
 
   return (
     <main className="auth-shell">
-      <section className="auth-hero hidden p-10 text-white lg:flex lg:flex-col lg:justify-between">
-        <Link href="/" className="text-xl font-black">TVS NADI</Link>
-        <div className="max-w-xl">
+      <section className="auth-hero hidden overflow-hidden p-10 text-white lg:flex lg:flex-col lg:justify-between">
+        <Lightfall />
+        <Link href="/" className="relative z-10 text-xl font-black">TVS NADI</Link>
+        <div className="relative z-10 max-w-xl">
           <div className="badge border-white/25 bg-white/10 text-white">Evidence-aware underwriting</div>
           <h1 className="mt-5 text-5xl font-black leading-tight">Risk is not the same as uncertainty.</h1>
           <p className="mt-5 text-lg leading-8 text-slate-100">Review adaptive recommendations, behavioral evidence, and safe-to-learn credit paths in one governed workspace.</p>
         </div>
-        <div className="grid grid-cols-3 gap-3 text-sm text-slate-200">
+        <div className="relative z-10 grid grid-cols-3 gap-3 text-sm text-slate-200">
           <div className="hero-stat">Repayment risk</div>
           <div className="hero-stat">Capacity</div>
           <div className="hero-stat">Evidence confidence</div>

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
+import ElectricBorder from "@/components/ElectricBorder";
 import type { PlatformApplication, PlatformTransaction, RepaymentCandidate } from "@/lib/api";
 
 export function formatCurrency(value: number | null | undefined): string {
@@ -94,8 +95,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return (
       <div className="app-frame app-frame-admin">
         <aside className="sidebar hidden min-h-screen p-5 lg:block">
-          <Link href={base} className="text-xl font-black">TVS NADI</Link>
-          <div className="mt-2 text-xs font-bold uppercase text-slate-400">Underwriting OS</div>
+          <Link href={base} className="text-xl font-black tracking-tight">TVS NADI</Link>
+          <div className="mt-2 text-xs font-bold uppercase tracking-[0.14em] text-slate-400">Adaptive Underwriting OS</div>
           <nav className="mt-8 grid gap-2 text-sm">
             {links.map(([label, href]) => {
               const hrefPath = href.split("?")[0];
@@ -112,7 +113,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <div className="font-black leading-tight">{user.name}</div>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <span className="badge badge-info">Local</span>
+                <span className="badge badge-info">Demo workspace</span>
                 <button className="btn-secondary" type="button" onClick={() => { logout(); router.push("/login"); }}>Logout</button>
               </div>
               <nav className="flex w-full gap-2 overflow-x-auto pb-1 text-sm lg:hidden">
@@ -133,7 +134,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen">
       <header className="sticky top-0 z-20 bg-[color:var(--ink)] text-white">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-5 py-4">
-          <Link href={base} className="text-lg font-black">TVS NADI</Link>
+          <Link href={base} className="text-lg font-black tracking-tight">TVS NADI</Link>
           <nav className="flex flex-wrap items-center gap-2 text-sm">
             {links.map(([label, href]) => {
               const active = pathname === href || pathname.startsWith(href);
@@ -159,7 +160,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
 export function ApplicationSummary({ application }: { application: PlatformApplication }) {
   return (
-    <div className="item-card">
+    <ElectricBorder color="#7df9ff" speed={1} chaos={0.12} thickness={2} style={{ borderRadius: 16 }}>
+    <div className="application-summary item-card">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="text-sm text-[color:var(--muted)]">Application #{application.id}</div>
@@ -173,6 +175,7 @@ export function ApplicationSummary({ application }: { application: PlatformAppli
         <Metric label="Borrower Type" value={application.latest_underwriting?.segment_analysis?.borrower_segment_label ?? application.borrower_segment?.replaceAll("_", " ") ?? "Not set"} />
       </div>
     </div>
+    </ElectricBorder>
   );
 }
 

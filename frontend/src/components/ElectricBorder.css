@@ -1,0 +1,87 @@
+.electric-border {
+  --electric-light-color: oklch(from var(--electric-border-color) l c h);
+  position: relative;
+  border-radius: inherit;
+  overflow: visible;
+  isolation: isolate;
+}
+
+.eb-canvas-container {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.eb-canvas {
+  display: block;
+}
+
+.eb-content {
+  position: relative;
+  border-radius: inherit;
+  z-index: 2;
+}
+
+.eb-layers {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.eb-glow-1,
+.eb-glow-2,
+.eb-background-glow {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-sizing: border-box;
+}
+
+.eb-glow-1 {
+  border: var(--electric-thickness, 2px) solid oklch(from var(--electric-border-color) l c h / 0.6);
+  filter: blur(1px);
+  opacity: calc(0.45 + var(--electric-chaos, 0.12));
+  animation: electric-pulse calc(3.6s / var(--electric-speed, 1)) ease-in-out infinite;
+}
+
+.eb-glow-2 {
+  border: var(--electric-thickness, 2px) solid var(--electric-light-color);
+  filter: blur(4px);
+  opacity: 0.65;
+  animation: electric-flicker calc(1.9s / var(--electric-speed, 1)) steps(2, end) infinite;
+}
+
+.eb-background-glow {
+  z-index: -1;
+  transform: scale(1.1);
+  filter: blur(32px);
+  opacity: 0.3;
+  background: linear-gradient(-30deg, var(--electric-light-color), transparent, var(--electric-border-color));
+  animation: electric-halo calc(4.5s / var(--electric-speed, 1)) ease-in-out infinite alternate;
+}
+
+@keyframes electric-pulse {
+  0%, 100% { opacity: 0.35; transform: scale(0.998); }
+  50% { opacity: 0.95; transform: scale(1.004); }
+}
+
+@keyframes electric-flicker {
+  0%, 40%, 100% { opacity: 0.38; }
+  41%, 44% { opacity: 0.95; }
+  70% { opacity: 0.62; }
+}
+
+@keyframes electric-halo {
+  from { opacity: 0.16; transform: scale(1.04); }
+  to { opacity: 0.42; transform: scale(1.13); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .eb-glow-1, .eb-glow-2, .eb-background-glow { animation: none; }
+}

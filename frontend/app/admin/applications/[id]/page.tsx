@@ -135,9 +135,12 @@ function DataSourceCoverage({ detail }: { detail: AdminApplicationDetail }) {
           <div className="item-card" key={source.source_type}>
             <div className="flex items-center justify-between gap-2">
               <span className="font-bold">{source.label}</span>
-              <span className={source.active ? "badge badge-good" : source.segment_relevant ? "badge badge-info" : "badge badge-neutral"}>
-                {source.active ? "Active" : source.segment_relevant ? "Relevant" : "Optional"}
-              </span>
+              <div className="flex gap-2">
+                {source.snapshot?.provenance?.evidence_origin === "PARAMETERIZED_SYNTHETIC_DEMO" ? <span className="badge badge-info">Synthetic demo</span> : null}
+                <span className={source.active ? "badge badge-good" : source.segment_relevant ? "badge badge-info" : "badge badge-neutral"}>
+                  {source.active ? "Active" : source.segment_relevant ? "Relevant" : "Optional"}
+                </span>
+              </div>
             </div>
             <ValueLine label="Mode" value={source.connection_mode ?? "NA"} />
             <ValueLine label="Quality" value={source.quality_score !== null ? `${Math.round(source.quality_score * 100)}%` : "NA"} />
@@ -430,7 +433,7 @@ export default function AdminApplicationDetailPage() {
           <EnvelopeWorkbench candidates={detail.repayment_envelope?.all_evaluated_combinations ?? []} />
           <CashFlowAndStress detail={detail} />
 
-          <section className="section-panel">
+          <section className="decision-panel section-panel">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <h2 className="text-xl font-bold">NADI Recommendation vs Final Admin Decision</h2>

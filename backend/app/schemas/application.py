@@ -77,6 +77,10 @@ class ApplicationDecisionStatus(BaseModel):
     status: str
 
 
+class NadiAssistantRequest(BaseModel):
+    question: str = Field(min_length=1, max_length=500)
+
+
 class RequiredApplicationFields(BaseModel):
     requested_amount: Decimal = Field(gt=0, le=5_000_000)
     requested_tenure: int = Field(ge=3, le=84)

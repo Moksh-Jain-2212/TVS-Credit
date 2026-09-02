@@ -174,8 +174,21 @@ def generate_repayment_envelope(row: pd.Series, policy: RepaymentEnvelopePolicy)
             safe_combinations,
             key=lambda item: (item["amount"], -item["estimated_emi"], item["tenure_months"]),
         )
+        recommendation_basis = "SAFE"
     else:
-        recommended = None
+        # Medium-risk/medium-confidence profiles can still have excellent capacity and
+        # stress survival. They must not be approved at the requested amount, but a
+        # smallest-available, longer-tenure BORDERLINE candidate is a conservative
+        # starter exposure for SAFE_TO_LEARN. This remains unavailable to APPROVE
+        # because the decision engine separately enforces stricter approval limits.
+        borderline_combinations = [
+            candidate for candidate in combinations if candidate["classification"] == "BORDERLINE"
+        ]
+        recommended = min(
+            borderline_combinations,
+            key=lambda item: (item["amount"], -item["tenure_months"], item["estimated_emi"]),
+        ) if borderline_combinations else None
+        recommendation_basis = "CONSERVATIVE_STARTER" if recommended else "NONE"
     return {
         "all_evaluated_combinations": combinations,
         "safe_combinations": safe_combinations,
@@ -183,4 +196,5 @@ def generate_repayment_envelope(row: pd.Series, policy: RepaymentEnvelopePolicy)
         "recommended_amount": recommended["amount"] if recommended else 0,
         "recommended_tenure": recommended["tenure_months"] if recommended else None,
         "recommended_emi": recommended["estimated_emi"] if recommended else None,
+        "recommendation_basis": recommendation_basis,
     }

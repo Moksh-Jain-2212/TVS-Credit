@@ -10,6 +10,7 @@ from typing import Any
 import pandas as pd
 
 from app.services.finance import estimate_emi
+from app.services.stress_simulator import load_stress_policy, simulate_borrower_stress
 
 
 POLICY_PATH = Path(__file__).resolve().parents[1] / "core" / "repayment_envelope_policy.json"
@@ -135,14 +136,12 @@ def build_candidate(row: pd.Series, amount: int, tenure: int, policy: RepaymentE
     conservative_cash_flow = safe_float(row.get("cash_flow_forecast_p10"), expected_cash_flow)
     latest_buffer = safe_float(row.get("pre_loan_latest_balance"), 0.0)
     income = safe_float(row.get("mean_monthly_inflow"), 0.0)
-    stress_probability, minimum_projected_buffer = scenario_stress_probability(
-        latest_buffer,
-        expected_cash_flow,
-        conservative_cash_flow,
-        income,
-        emi,
-        tenure,
-    )
+    stressed_row = row.copy()
+    stressed_row["scheduled_payment"] = emi
+    stressed_row["duration_months"] = tenure
+    stress = simulate_borrower_stress(stressed_row, load_stress_policy())
+    stress_probability = float(stress["stress_probability"])
+    minimum_projected_buffer = float(stress["minimum_remaining_cash_buffer"])
     candidate = {
         "amount": amount,
         "tenure_months": tenure,

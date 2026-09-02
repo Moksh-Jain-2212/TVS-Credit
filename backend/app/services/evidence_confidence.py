@@ -135,6 +135,16 @@ def score_evidence_consistency(row: pd.Series) -> float:
 
 
 def score_usable_evidence_types(row: pd.Series) -> float:
+    if row.get("live_evidence_mode") == "PKDD_DEMO":
+        # PKDD demo evidence is complete bank-transaction evidence, not an
+        # alternative-data source. Do not penalise it for lacking a UPI consent.
+        checks = [
+            safe_float(row.get("months_of_history"), 0.0) > 0,
+            safe_float(row.get("pre_loan_transaction_count"), 0.0) > 0,
+            safe_float(row.get("mean_monthly_inflow"), 0.0) > 0,
+            value_present(row.get("average_balance")),
+        ]
+        return float(sum(checks) / len(checks))
     relevant = row.get("segment_relevant_sources")
     if isinstance(relevant, list) and relevant:
         connected = row.get("alternative_data_sources")

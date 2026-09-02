@@ -13,7 +13,10 @@ import pandas as pd
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-RAW_DIR = REPO_ROOT / "data" / "raw" / "pkdd"
+RAW_DIR_CANDIDATES = (
+    REPO_ROOT / "data" / "raw" / "pkdd",
+    REPO_ROOT / "data" / "raw",
+)
 FEATURES_PATH = REPO_ROOT / "data" / "processed" / "nadi_features.csv"
 METADATA_PATH = REPO_ROOT / "data" / "processed" / "artifact_metadata.json"
 
@@ -22,14 +25,21 @@ def run_step(args: list[str]) -> None:
     subprocess.run([sys.executable, *args], cwd=REPO_ROOT, check=True)
 
 
-def raw_pkdd_available() -> bool:
+def raw_pkdd_dir() -> Path | None:
     required = {"account.asc", "client.asc", "disp.asc", "loan.asc", "order.asc", "trans.asc"}
-    return required.issubset({path.name for path in RAW_DIR.glob("*.asc")})
+    for raw_dir in RAW_DIR_CANDIDATES:
+        if required.issubset({path.name for path in raw_dir.glob("*.asc")}):
+            return raw_dir
+    return None
 
 
 def write_fallback_features() -> None:
     FEATURES_PATH.parent.mkdir(parents=True, exist_ok=True)
     rows = []
+    # Keep the fallback dataset aligned with the documented demo cases and
+    # integration flows. These IDs are not PKDD records; they are stable,
+    # deterministic local-fixture identifiers.
+    demo_loan_ids = {1: 6097, 4: 5161}
     for index in range(18):
         year = 1994 + (index // 5)
         target = index % 2
@@ -38,7 +48,7 @@ def write_fallback_features() -> None:
         net = income - outflow
         rows.append(
             {
-                "loan_id": 9000 + index,
+                "loan_id": demo_loan_ids.get(index, 9000 + index),
                 "account_id": 7000 + index,
                 "primary_client_id": 5000 + index,
                 "primary_client_birth_number": None,
@@ -127,9 +137,10 @@ def create_demo_admin() -> None:
 
 def main() -> None:
     run_step(["scripts/init_app_db.py"])
-    if raw_pkdd_available():
+    raw_dir = raw_pkdd_dir()
+    if raw_dir is not None:
         mode = "pkdd"
-        run_step(["scripts/prepare_pkdd.py"])
+        run_step(["scripts/prepare_pkdd.py", "--raw-dir", str(raw_dir)])
         run_step(["scripts/init_db.py"])
         run_step(["scripts/import_pkdd.py"])
         run_step(["scripts/build_nadi_base_features.py"])

@@ -1,0 +1,3 @@
+loan_id,confidence_score,months_of_history,transaction_density,seasonality_status,evidence_ladder_status,recommended_evidence,expected_confidence_improvement,evidence_reason,evidence_friction_level,evidence_privacy_cost_level,evidence_ladder_rankings
+1,45,2,1,insufficient_history,additional_evidence_recommended,additional_bank_history_months,34.8,more bank history,low,medium,"[{""evidence"": ""additional_bank_history_months"", ""expected_confidence_improvement"": 34.8, ""friction_level"": ""low"", ""mocked_available"": true, ""privacy_cost_level"": ""medium"", ""ranking_score"": 6.96, ""reason"": ""more bank history""}]"
+2,90,18,1,insufficient_history,sufficient_confidence,none,0.0,Evidence confidence is already sufficient.,none,none,[]

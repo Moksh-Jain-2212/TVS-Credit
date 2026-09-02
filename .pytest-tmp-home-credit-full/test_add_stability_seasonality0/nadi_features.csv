@@ -1,0 +1,2 @@
+loan_id,repayment_outcome_known,stability_history_status,income_stability_score,cash_flow_stability_score,phase7_income_trend,seasonality_status,income_seasonality_strength,likely_low_income_periods,likely_high_income_periods
+11,True,sufficient_history,0.7383996747591036,0.610610872488259,51.04895104895104,sufficient_history,1.0,"Jun,May","Dec,Nov"

@@ -1,0 +1,107 @@
+{
+  "tables": {
+    "account": {
+      "output_file": "accounts.csv",
+      "row_count": 1,
+      "duplicate_primary_keys": 0,
+      "missing_values": {
+        "account_id": 0,
+        "district_id": 0,
+        "frequency": 0,
+        "account_open_date": 0
+      }
+    },
+    "trans": {
+      "output_file": "transactions.csv",
+      "row_count": 1,
+      "duplicate_primary_keys": 0,
+      "missing_values": {
+        "trans_id": 0,
+        "account_id": 0,
+        "transaction_date": 0,
+        "type": 0,
+        "operation": 0,
+        "amount": 0,
+        "balance": 0,
+        "k_symbol": 1,
+        "bank": 1,
+        "account": 1
+      }
+    },
+    "loan": {
+      "output_file": "loans.csv",
+      "row_count": 1,
+      "duplicate_primary_keys": 0,
+      "missing_values": {
+        "loan_id": 0,
+        "account_id": 0,
+        "loan_date": 0,
+        "amount": 0,
+        "duration": 0,
+        "payments": 0,
+        "status": 0
+      }
+    },
+    "client": {
+      "output_file": "clients.csv",
+      "row_count": 1,
+      "duplicate_primary_keys": 0,
+      "missing_values": {
+        "client_id": 0,
+        "birth_number": 0,
+        "district_id": 0
+      }
+    },
+    "disp": {
+      "output_file": "dispositions.csv",
+      "row_count": 1,
+      "duplicate_primary_keys": 0,
+      "missing_values": {
+        "disp_id": 0,
+        "client_id": 0,
+        "account_id": 0,
+        "type": 0
+      }
+    },
+    "order": {
+      "output_file": "orders.csv",
+      "row_count": 1,
+      "duplicate_primary_keys": 0,
+      "missing_values": {
+        "order_id": 0,
+        "account_id": 0,
+        "bank_to": 0,
+        "account_to": 0,
+        "amount": 0,
+        "k_symbol": 0
+      }
+    }
+  },
+  "relationships": [
+    {
+      "relationship": "trans.account_id -> account.account_id",
+      "child_rows_checked": 1,
+      "orphan_rows": 0
+    },
+    {
+      "relationship": "loan.account_id -> account.account_id",
+      "child_rows_checked": 1,
+      "orphan_rows": 0
+    },
+    {
+      "relationship": "order.account_id -> account.account_id",
+      "child_rows_checked": 1,
+      "orphan_rows": 0
+    },
+    {
+      "relationship": "disp.account_id -> account.account_id",
+      "child_rows_checked": 1,
+      "orphan_rows": 0
+    },
+    {
+      "relationship": "disp.client_id -> client.client_id",
+      "child_rows_checked": 1,
+      "orphan_rows": 0
+    }
+  ]
+}

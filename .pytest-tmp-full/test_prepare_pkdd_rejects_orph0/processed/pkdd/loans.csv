@@ -1,0 +1,2 @@
+loan_id,account_id,loan_date,amount,duration,payments,status
+11,99,1993-07-05,96396,12,8033.0,B

@@ -1,0 +1,2 @@
+trans_id,account_id,transaction_date,type,operation,amount,balance,k_symbol,bank,account
+17,1,1993-01-02,PRIJEM,VKLAD,700.0,700.0,,,

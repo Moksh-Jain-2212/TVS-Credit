@@ -1,0 +1,1 @@
+{"survival_buffer_floor": 0, "scenarios": [{"name": "normal", "income_multiplier": 1.0, "expense_shock": 0, "cash_flow_quantile": "p50"}, {"name": "low_income_period", "income_multiplier": 1.0, "expense_shock": 0, "cash_flow_quantile": "p10"}]}

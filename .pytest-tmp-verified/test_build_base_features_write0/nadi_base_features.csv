@@ -1,0 +1,2 @@
+loan_id,account_id,loan_date,requested_amount,duration_months,scheduled_payment,loan_status_target,account_open_date,account_age_days_at_loan,account_frequency,account_district_id,primary_client_id,primary_client_birth_number,primary_client_district_id,owner_client_count,disposition_count,pre_loan_transaction_count,pre_loan_first_transaction_date,pre_loan_last_transaction_date,pre_loan_observed_days,pre_loan_latest_balance,has_pre_loan_transactions
+11,1,1993-07-05,96396,12,8033.0,B,1993-01-01,185,POPLATEK MESICNE,10,3,706213,10,1,1,1,1993-07-04,1993-07-04,1,700.0,True

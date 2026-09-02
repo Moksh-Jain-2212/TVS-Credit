@@ -1,0 +1,1 @@
+{"min_sufficient_confidence_score": 75, "default_options": [{"name": "additional_bank_history_months", "base_confidence_gain": 18, "friction_cost": 2, "privacy_cost": 3, "mocked_available": true, "reason": "more bank history"}]}

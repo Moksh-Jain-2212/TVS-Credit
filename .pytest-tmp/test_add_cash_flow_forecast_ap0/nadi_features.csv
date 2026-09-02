@@ -1,0 +1,2 @@
+loan_id,confidence_score,cash_flow_forecast_status,cash_flow_forecast_method,cash_flow_forecast_history_months,cash_flow_forecast_p10,cash_flow_forecast_p50,cash_flow_forecast_p90
+11,80,forecast_available,historical_quantile_with_trend_adjustment,5,540.0,700.0,860.0

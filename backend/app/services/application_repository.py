@@ -324,7 +324,11 @@ def run_demo_simulation(application_id: int, action: str) -> dict[str, Any]:
         updated["mean_monthly_net_cash_flow"] = safe_float(updated.get("mean_monthly_net_cash_flow"), 0.0) - income_loss
         for column in ("cash_flow_forecast_p10", "cash_flow_forecast_p50", "cash_flow_forecast_p90"):
             updated[column] = safe_float(updated.get(column), 0.0) - income_loss
-        return recompute_demo_result(updated, action, {"income_multiplier": 0.8, "monthly_income_loss": income_loss})
+        # A two-month income disruption also consumes the available liquidity
+        # buffer before the borrower can adapt spending.
+        buffer_drawdown = income_loss * 2
+        updated["pre_loan_latest_balance"] = max(0.0, safe_float(updated.get("pre_loan_latest_balance"), 0.0) - buffer_drawdown)
+        return recompute_demo_result(updated, action, {"income_multiplier": 0.8, "monthly_income_loss": income_loss, "buffer_drawdown": buffer_drawdown})
 
     if action == "emergency_expense":
         expense = find_emergency_expense_amount()

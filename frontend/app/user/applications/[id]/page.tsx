@@ -68,7 +68,7 @@ export default function UserApplicationDetailPage() {
             <div className="mt-4 grid gap-3 sm:grid-cols-3">
               <div className="metric-card"><div className="metric-label">Requested</div><div className="metric-value">{formatCurrency(application.requested_amount)}</div></div>
               <div className="metric-card"><div className="metric-label">Recommended</div><div className="metric-value">{formatCurrency(application.latest_underwriting?.recommended_amount)}</div></div>
-              <div className="metric-card"><div className="metric-label">Approved</div><div className="metric-value">{formatCurrency(application.latest_admin_decision?.approved_amount)}</div></div>
+              <div className="metric-card"><div className="metric-label">Final admin approval</div><div className="metric-value">{formatCurrency(application.latest_admin_decision?.approved_amount)}</div></div>
             </div>
             {application.latest_underwriting?.borrower_explanation ? (
               <div className="mt-4 text-sm leading-6 text-[color:var(--muted)]">
@@ -78,10 +78,10 @@ export default function UserApplicationDetailPage() {
           </section>
           {application.latest_underwriting?.behavioral_risk ? (
             <section className="section-panel">
-              <h2 className="text-xl font-bold">Behavioral Evidence</h2>
+              <h2 className="text-xl font-bold">Alternative-data Evidence</h2>
               <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                <div className="metric-card"><div className="metric-label">Coverage</div><div className="metric-value">{formatPercent(application.latest_underwriting.behavioral_risk.behavioral_data_coverage)}</div></div>
-                <div className="metric-card"><div className="metric-label">Evidence Confidence</div><div className="metric-value">{Math.round(application.latest_underwriting.behavioral_risk.behavioral_assessment_confidence ?? 0)} / 100</div></div>
+                <div className="metric-card"><div className="metric-label">Alternative-data coverage</div><div className="metric-value">{formatPercent(application.latest_underwriting.behavioral_risk.behavioral_data_coverage)}</div></div>
+                <div className="metric-card"><div className="metric-label">Alternative-data confidence</div><div className="metric-value">{Math.round(application.latest_underwriting.behavioral_risk.behavioral_assessment_confidence ?? 0)} / 100</div></div>
                 <div className="metric-card"><div className="metric-label">Current Risk</div><div className="metric-value">{formatPercent(application.latest_underwriting.behavioral_risk.combined_risk_probability)}</div></div>
               </div>
             </section>
@@ -89,8 +89,9 @@ export default function UserApplicationDetailPage() {
           {application.latest_underwriting ? (
             <section className="section-panel">
               <h2 className="text-xl font-bold">NADI Underwriting</h2>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
                 <div className="metric-card"><div className="metric-label">Recommendation</div><div className="metric-value">{application.latest_underwriting.nadi_decision_state?.replaceAll("_", " ") ?? "Pending"}</div></div>
+                <div className="metric-card"><div className="metric-label">Evidence confidence</div><div className="metric-value">{application.latest_underwriting.confidence_score ?? "Not available"} / 100</div></div>
                 <div className="metric-card"><div className="metric-label">Safe Exposure</div><div className="metric-value">{formatCurrency(application.latest_underwriting.maximum_safe_exposure)}</div></div>
                 <div className="metric-card"><div className="metric-label">Stress Probability</div><div className="metric-value">{formatPercent(application.latest_underwriting.stress_probability)}</div></div>
                 <div className="metric-card"><div className="metric-label">Worst Stress</div><div className="metric-value">{application.latest_underwriting.worst_stress_scenario?.replaceAll("_", " ") ?? "Not available"}</div></div>

@@ -51,11 +51,15 @@ def create_app_session_factory(engine: Engine) -> sessionmaker:
 def app_database_is_healthy(db_path: Path) -> bool:
     if not db_path.exists():
         return True
+    connection: sqlite3.Connection | None = None
     try:
-        with sqlite3.connect(db_path) as connection:
-            result = connection.execute("PRAGMA integrity_check;").fetchone()
+        connection = sqlite3.connect(db_path)
+        result = connection.execute("PRAGMA integrity_check;").fetchone()
     except sqlite3.DatabaseError:
         return False
+    finally:
+        if connection is not None:
+            connection.close()
     return result is not None and result[0] == "ok"
 
 

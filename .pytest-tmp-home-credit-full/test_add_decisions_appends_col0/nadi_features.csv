@@ -1,0 +1,2 @@
+loan_id,requested_amount,maximum_safe_exposure,recommended_amount,recommended_tenure,recommended_emi,confidence_score,risk_model_probability,stress_probability,decision_state,decision_recommended_amount,decision_recommended_tenure,decision_recommended_emi,decision_reasons
+1.0,50000.0,50000.0,50000.0,12.0,4600.0,80.0,0.1,0.1,APPROVE,50000.0,12.0,4600.0,"[""requested amount is within the safe repayment envelope""]"

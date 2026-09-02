@@ -41,6 +41,18 @@ def test_simulate_borrower_stress_returns_required_fields() -> None:
     assert result["minimum_remaining_cash_buffer"] < 2000.0
 
 
+def test_temporary_income_shock_recovers_after_configured_months() -> None:
+    row = borrower_row()
+    row["duration_months"] = 12
+    scenario = StressScenario("temporary", 0.5, 0.0, "p50", income_shock_months=2)
+    result = simulate_borrower_stress(row, StressPolicy(0.0, [scenario]))
+
+    assert result["scenario_results"][0]["monthly_cash_flow_after_stress"] == -500.0
+    # The recurring forecast resumes after month two; the shock is not applied
+    # for every month of the loan tenure.
+    assert result["minimum_remaining_cash_buffer"] == 0.0
+
+
 def test_add_stress_simulation_appends_columns_and_is_rerunnable(tmp_path: Path) -> None:
     features_path = tmp_path / "nadi_features.csv"
     policy_path = tmp_path / "stress_scenarios.json"

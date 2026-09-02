@@ -10,6 +10,7 @@ from typing import Any
 
 from fastapi import HTTPException, status
 from sqlalchemy import desc, select
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from app.core.database import create_session_factory, create_sqlite_engine
@@ -260,16 +261,30 @@ def transaction_summary(transactions: list[Transaction], standing_orders: list[S
 def transactions_for_application(application: LoanApplication) -> dict:
     if application.financial_data_source != "PKDD_DEMO" or application.source_account_id is None:
         return {"summary": transaction_summary([], []), "transactions": [], "mocked": True}
-    with transaction_session() as session:
-        transactions = session.scalars(
-            select(Transaction)
-            .where(Transaction.account_id == application.source_account_id)
-            .order_by(Transaction.transaction_date)
-            .limit(500)
-        ).all()
-        orders = session.scalars(
-            select(StandingOrder).where(StandingOrder.account_id == application.source_account_id)
-        ).all()
+    try:
+        with transaction_session() as session:
+            transactions = session.scalars(
+                select(Transaction)
+                .where(Transaction.account_id == application.source_account_id)
+                .order_by(Transaction.transaction_date)
+                .limit(500)
+            ).all()
+            orders = session.scalars(
+                select(StandingOrder).where(StandingOrder.account_id == application.source_account_id)
+            ).all()
+    except OperationalError as error:
+        # Fallback bootstrap intentionally creates feature-level demo evidence
+        # without a raw PKDD transaction database. The admin detail page remains
+        # usable, but must not imply that transaction-level evidence exists.
+        if "no such table" not in str(error).lower():
+            raise
+        return {
+            "summary": transaction_summary([], []),
+            "transactions": [],
+            "mocked": True,
+            "label": "Transaction-level PKDD evidence is unavailable in fallback demo mode",
+            "underwriting_evidence_scope": "UNDERWRITING_EVIDENCE uses the generated feature snapshot only.",
+        }
     return {
         "summary": transaction_summary(transactions, orders),
         "transactions": [

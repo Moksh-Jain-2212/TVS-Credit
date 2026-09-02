@@ -1,0 +1,1 @@
+{"approve": {"min_confidence_score": 60, "max_risk_probability": 0.35, "max_stress_probability": 0.25}, "safe_to_learn": {"min_starter_amount": 20000, "max_risk_probability": 0.55}, "evidence_needed": {"min_confidence_score_for_affordability_judgment": 50}}

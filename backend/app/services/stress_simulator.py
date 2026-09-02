@@ -20,6 +20,7 @@ class StressScenario:
     expense_shock: float
     cash_flow_quantile: str
     expense_shock_period: int | None = None
+    income_shock_months: int | None = None
 
 
 @dataclass(frozen=True)
@@ -37,6 +38,9 @@ def load_stress_policy(path: Path = POLICY_PATH) -> StressPolicy:
             expense_shock=float(item.get("expense_shock", 0.0)),
             expense_shock_period=(
                 int(item["expense_shock_period"]) if item.get("expense_shock_period") is not None else None
+            ),
+            income_shock_months=(
+                int(item["income_shock_months"]) if item.get("income_shock_months") is not None else None
             ),
             cash_flow_quantile=str(item["cash_flow_quantile"]),
         )
@@ -81,11 +85,12 @@ def simulate_scenario(
     worst_period = 0
     failed_periods = 0
     for period in range(1, tenure + 1):
+        active_income_loss = income_loss if scenario.income_shock_months is None or period <= scenario.income_shock_months else 0.0
         if scenario.expense_shock_period is None:
             expense_shock = scenario.expense_shock
         else:
             expense_shock = scenario.expense_shock if period == scenario.expense_shock_period else 0.0
-        projected_buffer += scenario_monthly_cash_flow - emi - expense_shock
+        projected_buffer += forecast_cash_flow - active_income_loss - emi - expense_shock
         if projected_buffer < min_buffer:
             min_buffer = projected_buffer
             worst_period = period
@@ -113,7 +118,7 @@ def segment_scenarios(row: pd.Series, policy: StressPolicy) -> list[StressScenar
             StressScenario("normal", 1.0, 0.0, "p50"),
             StressScenario("salary_minus_10", 0.9, 0.0, "p50"),
             StressScenario("salary_minus_20", 0.8, 0.0, "p50"),
-            StressScenario("temporary_income_interruption", 0.5, 0.0, "p10"),
+            StressScenario("temporary_income_interruption", 0.5, 0.0, "p10", income_shock_months=2),
             StressScenario("emergency_expense", 1.0, emergency_expense, "p50", 1),
         ]
     if segment == "GIG_WORKER":

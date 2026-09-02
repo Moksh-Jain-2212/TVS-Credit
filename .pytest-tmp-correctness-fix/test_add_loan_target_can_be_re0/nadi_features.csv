@@ -1,0 +1,5 @@
+loan_id,mean_monthly_inflow,loan_status_from_source,loan_status_meaning,repayment_outcome_known,repayment_default_target,target_exclusion_reason
+1,1000.0,A,"finished contract, no repayment problems",True,0.0,
+2,900.0,B,"finished contract, loan not paid",True,1.0,
+3,800.0,C,"running contract, no repayment problems so far",False,,running_contract_not_final
+4,700.0,D,"running contract, client in debt",False,,running_contract_not_final

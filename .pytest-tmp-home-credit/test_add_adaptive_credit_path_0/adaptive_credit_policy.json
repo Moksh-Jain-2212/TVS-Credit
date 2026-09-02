@@ -1,0 +1,1 @@
+{"allowed_events": {"on_time": {"risk_multiplier": 0.95, "confidence_delta": 2, "cash_flow_delta_multiplier": 0, "buffer_delta_multiplier": -1}}, "max_confidence_score": 100, "min_confidence_score": 0, "min_starter_amount": 20000}

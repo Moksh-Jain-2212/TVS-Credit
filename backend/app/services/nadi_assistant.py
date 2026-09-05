@@ -17,7 +17,7 @@ from app.models import LoanApplication
 from app.services.grok_explainability import deidentified_input, truthy
 
 
-ASSISTANT_PROMPT_VERSION = "ask-nadi-borrower-v1"
+ASSISTANT_PROMPT_VERSION = "ask-nadi-borrower-v2"
 DISCLAIMER = "Ask NADI explains an existing assessment. It cannot approve, reject, change, or promise a loan decision."
 
 PROMPT = ChatPromptTemplate.from_messages(
@@ -26,11 +26,16 @@ PROMPT = ChatPromptTemplate.from_messages(
             "system",
             """You are Ask NADI, a borrower-facing explanation assistant for an existing lending assessment.
 Answer only from the supplied de-identified underwriting context.
-Use plain, respectful language and INR amounts when supplied.
+Use plain, respectful language and INR amounts when supplied. Be genuinely helpful and descriptive, without repeating generic disclaimers.
 Never make, change, promise, or recommend a lending decision. Never say that connecting data guarantees approval.
 Do not provide financial, legal, or investment advice. Do not infer protected characteristics or mention raw counterparties.
 If asked to change a decision, say only a future re-underwriting after new consented evidence or repayment observations can change eligibility.
-Keep the answer under 120 words and end with: "NADI's policy engine, not this assistant, makes lending decisions.""" ,
+Use this exact structure, with short sections and only facts supported by the context:
+Current assessment: Explain the decision and whether it concerns the full request or a safer alternative.
+Why NADI reached this result: Give 2-4 concrete decision reasons.
+What this means for you: Explain the practical impact, including recommended amount or evidence confidence when available.
+What you can do next: Give 1-3 realistic next steps. Never promise a different outcome.
+Keep the answer under 220 words and end with: "NADI's policy engine, not this assistant, makes lending decisions.""" ,
         ),
         (
             "human",
@@ -44,24 +49,58 @@ def _clean_question(question: str) -> str:
     return " ".join(question.strip().split())[:500]
 
 
+def _inr(value: Any) -> str:
+    try:
+        return f"INR {float(value):,.0f}"
+    except (TypeError, ValueError):
+        return "not available"
+
+
 def fallback_answer(question: str, context: dict[str, Any]) -> str:
     underwriting = context["underwriting"]
     lowered = question.lower()
     decision = str(underwriting.get("nadi_decision_state") or "pending").replace("_", " ")
     recommended = underwriting.get("recommended_amount")
     confidence = underwriting.get("confidence_score")
-    reasons = underwriting.get("decision_reasons") or []
+    reasons = [str(reason).rstrip(".") for reason in underwriting.get("decision_reasons") or []]
+    active_sources = [
+        str(source.get("source_type", "")).replace("_", " ").title()
+        for source in context.get("behavioral_sources", [])
+        if source.get("active")
+    ]
+    recommended_text = _inr(recommended) if recommended is not None else "not available"
+    confidence_text = f"{int(float(confidence))}/100" if confidence is not None else "not available"
     if any(term in lowered for term in ("change", "override", "approve me", "increase", "guarantee")):
-        answer = "I cannot change or promise this result. New consented evidence or repayment observations can be considered only through a complete re-underwriting."
-    elif any(term in lowered for term in ("why", "reason", "decision")):
-        answer = f"Your current NADI result is {decision}. " + (str(reasons[0]) if reasons else "It is based on affordability, risk, evidence confidence, and stress testing.")
-    elif any(term in lowered for term in ("improve", "better", "evidence", "eligible")):
-        answer = "You can strengthen a future assessment by keeping consented financial evidence complete and by showing repayment behavior over time. More evidence does not guarantee approval; affordability and stress checks still apply."
-    elif any(term in lowered for term in ("safe to learn", "starter")):
-        answer = f"SAFE TO LEARN means NADI does not support the full request today, but may identify a smaller conservative starter exposure. The current recommended amount is INR {recommended or 0:,.0f}."
+        return (
+            f"Current assessment:\nYour current NADI result is {decision}. I cannot change or promise this result, and I cannot override it.\n\n"
+            "What you can do next:\nA future assessment can consider new consented evidence or repayment observations through complete re-underwriting. "
+            "More data does not guarantee approval because affordability and stress checks still apply.\n\n"
+            "NADI's policy engine, not this assistant, makes lending decisions."
+        )
+
+    reason_lines = reasons[:3] or ["NADI considers affordability, repayment risk, evidence confidence, and stress resilience together"]
+    reason_text = "\n".join(f"- {reason}." for reason in reason_lines)
+    source_text = ", ".join(active_sources) if active_sources else "No alternative-data source is currently connected"
+    if "safe to learn" in decision.lower():
+        meaning = f"The full request is not considered safely supportable today. A smaller starter exposure of {recommended_text} may be considered if it remains within the repayment envelope."
+    elif "approve" in decision.lower():
+        meaning = f"NADI found that the current request fits the available repayment and evidence assessment. The recommended amount is {recommended_text}."
+    elif "evidence" in decision.lower():
+        meaning = "NADI needs stronger or more complete evidence before it can make a confident affordability assessment."
     else:
-        answer = f"NADI currently shows {decision} with evidence confidence {confidence if confidence is not None else 'not available'}. Ask why the decision was made, what SAFE TO LEARN means, or what evidence can support a future assessment."
-    return f"{answer} NADI's policy engine, not this assistant, makes lending decisions."
+        meaning = "NADI found that the current request does not fit the available repayment-capacity and stress assessment."
+    next_steps = (
+        "- Keep consented financial evidence accurate and complete.\n"
+        "- Build repayment observations over time where a starter path is offered.\n"
+        "- Review the recommended amount and tenure rather than assuming the full requested amount is safe."
+    )
+    return (
+        f"Current assessment:\nYour current NADI result is {decision}.\n\n"
+        f"Why NADI reached this result:\n{reason_text}\n\n"
+        f"What this means for you:\n{meaning} Evidence confidence is {confidence_text}. Connected evidence: {source_text}.\n\n"
+        f"What you can do next:\n{next_steps}\n\n"
+        "NADI's policy engine, not this assistant, makes lending decisions."
+    )
 
 
 def answer_question(session: Any, application: LoanApplication, question: str) -> dict[str, Any]:

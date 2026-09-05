@@ -82,7 +82,7 @@ function AskNadiPanel({ applicationId, token }: { applicationId: number; token: 
       {error ? <div className="notice mt-4 border-red-200 bg-red-50 text-red-700">{error}</div> : null}
       {response ? (
         <div className="mt-4 rounded-xl border border-[color:var(--line)] bg-[#f8fafc] p-4">
-          <p className="text-sm leading-6">{response.answer}</p>
+          <p className="whitespace-pre-line text-sm leading-6">{response.answer}</p>
           <p className="mt-3 text-xs font-semibold text-[color:var(--muted)]">{response.disclaimer}</p>
         </div>
       ) : null}

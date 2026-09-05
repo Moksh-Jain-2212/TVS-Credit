@@ -19,6 +19,8 @@ def test_fallback_explains_existing_decision_without_changing_it() -> None:
     answer = fallback_answer("Why was this decision made?", context())
     assert "SAFE TO LEARN" in answer
     assert "requested amount exceeds" in answer
+    assert "What this means for you" in answer
+    assert "What you can do next" in answer
     assert "policy engine" in answer
 
 

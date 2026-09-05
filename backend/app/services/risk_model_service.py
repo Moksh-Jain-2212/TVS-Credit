@@ -12,7 +12,7 @@ import pandas as pd
 
 
 MODEL_PATH = Path(__file__).resolve().parents[3] / "models" / "repayment_risk_model.joblib"
-DEFAULT_MODEL_VERSION = "historical-risk-v1"
+DEFAULT_MODEL_VERSION = "historical-risk-ensemble-v2"
 
 
 @dataclass(frozen=True)

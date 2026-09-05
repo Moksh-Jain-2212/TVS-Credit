@@ -35,7 +35,28 @@ To reset only the Docker demo data, run `docker compose down -v`.
 
 `NEXT_PUBLIC_API_BASE_URL` is compiled into the frontend image. Before a cloud
 build, set it to the public HTTPS URL of the backend, and set
-`CORS_ALLOW_ORIGINS` to the public HTTPS URL of the frontend.
+`CORS_ALLOW_ORIGINS` to the public HTTPS URL of the frontend. Do not include a
+trailing slash in either URL.
+
+For a hosted registration flow, configure these backend environment variables
+in Render (never in the frontend):
+
+```text
+OTP_DELIVERY_MODE=SMTP_EMAIL
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USERNAME=<sender Gmail address>
+SMTP_PASSWORD=<Gmail app password>
+SMTP_FROM_EMAIL=<sender Gmail address>
+SMTP_FROM_NAME=TVS NADI
+SMTP_USE_TLS=true
+CORS_ALLOW_ORIGINS=https://frontend-seven-rho-58.vercel.app
+```
+
+The Gmail account must have two-step verification enabled and use an app
+password. A `503 Unable to send verification email` from `/auth/register` or
+`/auth/resend-otp` means the SMTP settings are missing, rejected, or
+unreachable; check the Render service logs after updating them and redeploy.
 
 The Docker setup uses SQLite for a single-instance demo deployment. A
 production deployment should use a managed database, secret manager, HTTPS

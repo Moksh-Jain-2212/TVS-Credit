@@ -9,6 +9,7 @@ services:
       APP_DATABASE_PATH: /app/data/nadi_app.db
       CORS_ALLOW_ORIGINS: http://localhost:3000
       BOOTSTRAP_CREATE_ADMIN: "true"
+      RATE_LIMIT_LOGIN_PER_WINDOW: "30"
     ports:
       - "8000:8000"
     volumes:

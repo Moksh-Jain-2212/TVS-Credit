@@ -57,12 +57,12 @@ def smtp_settings_from_env() -> SmtpSettings:
     except ValueError as exc:
         raise EmailConfigurationError("SMTP_PORT must be an integer") from exc
     return SmtpSettings(
-        host=str(required["SMTP_HOST"]),
+        host=str(required["SMTP_HOST"]).strip(),
         port=port,
-        username=str(required["SMTP_USERNAME"]),
-        password=str(required["SMTP_PASSWORD"]),
-        from_email=str(required["SMTP_FROM_EMAIL"]),
-        from_name=os.getenv("SMTP_FROM_NAME", "TVS NADI"),
+        username=str(required["SMTP_USERNAME"]).strip(),
+        password=str(required["SMTP_PASSWORD"]).strip(),
+        from_email=str(required["SMTP_FROM_EMAIL"]).strip(),
+        from_name=os.getenv("SMTP_FROM_NAME", "TVS NADI").strip(),
         use_tls=env_bool("SMTP_USE_TLS", True),
     )
 

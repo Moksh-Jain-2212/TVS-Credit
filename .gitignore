@@ -33,3 +33,10 @@ build/
 .DS_Store
 .idea/
 .vscode/
+.vercel
+
+# Local test and agent artifacts
+ci-pytest-tmp*/
+backend-test-tmp*/
+.pytest-tmp*/
+tmp/

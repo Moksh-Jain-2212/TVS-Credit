@@ -98,10 +98,13 @@ def test_train_risk_model_saves_model_metrics_and_input_doc(tmp_path: Path) -> N
     metrics_path = model_dir / "repayment_risk_metrics.json"
     artifact = joblib.load(model_path)
 
-    assert result["selected_model"] in {"logistic_regression", "gradient_boosting"}
+    assert result["selected_model"].endswith("_calibrated")
+    assert "algorithm_availability" in result
+    assert 0 < result["operating_threshold"] <= 0.5
     assert model_path.exists()
     assert metrics_path.exists()
     assert docs_path.exists()
     assert artifact["target_column"] == "repayment_default_target"
+    assert artifact["selection_criterion"] == "highest validation PR-AUC"
     assert "loan_status_target" not in artifact["feature_columns"]
     assert "Validation metrics" not in docs_path.read_text(encoding="utf-8")
